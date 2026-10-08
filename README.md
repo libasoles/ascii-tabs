@@ -34,26 +34,57 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 
 A bare `<ascii-tabs>` is editable: a hint, one Sheet per Tab with copy and delete buttons, and an add button. Click a string and type the fret number (0–24); move with the arrow keys, Enter and Tab.
 
-Read and write the content with `value` (`(number|null)[][][]`: Tabs → Columns → 6 entries, String 1 to 6). Every edit fires `change`:
+## Initial value
+
+Pass the content as data through the `value` property. This is the preferred way to fill the element: no parsing, nothing ambiguous, and it is the same shape `value` and `change` give back.
+
+`value` is `(number|null)[][][]`: an array of Tabs, each an array of Columns, each Column 6 entries from String 1 to String 6, a Fret (0–24) or `null` for an empty String.
+
+```html
+<ascii-tabs id="song"></ascii-tabs>
+<script>
+  song.value = [
+    [ // one Tab
+      [null, null, 2, null, 0, null],
+      [null, null, null, 2, null, null],
+      [null, 3, null, null, null, null],
+      [null, null, 2, null, 0, null],
+    ],
+  ];
+</script>
+```
+
+renders as:
+
+```
+1 ------------
+2 -------3----
+3 -2--------2-
+4 ----2-------
+5 -0--------0-
+6 ------------
+```
+
+`value` can be set before or after the element upgrades. Read it back the same way; every edit fires `change`:
 
 ```js
-const tabs = document.querySelector('ascii-tabs');
-tabs.addEventListener('change', e => console.log(e.detail.value));
-tabs.value = [[[null, null, 3, null, null, null], [0, null, null, null, null, null]]];
+song.addEventListener('change', e => console.log(e.detail.value));
 ```
 
 Setting `value` does not fire `change`. The component is uncontrolled by default; for the controlled pattern, keep the Tabs in your own state, update it on `change` and write `value` back when the state changes elsewhere:
 
 ```js
 let state = [[]];
-tabs.value = state;
-tabs.addEventListener('change', e => { state = e.detail.value; save(state); });
-function load(next) { state = next; tabs.value = state; }
+song.value = state;
+song.addEventListener('change', e => { state = e.detail.value; save(state); });
+function load(next) { state = next; song.value = state; }
 ```
+
+If all you have is ASCII text, put it in a `<pre>` instead (see below).
 
 ## ASCII in and out
 
-A `<pre>` per Tab becomes the initial value. Parsing is lenient: number labels (`1 `–`6 `) and note labels (`e|B|G|D|A|E|`), any number of dashes. Frets at the same horizontal position share a Column, and several Staves are joined into one Tab.
+As an alternative to `value`, a `<pre>` per Tab becomes the initial value; it is ignored when `value` is set. Parsing is lenient: number labels (`1 `–`6 `) and note labels (`e|B|G|D|A|E|`), any number of dashes. Frets at the same horizontal position share a Column, and several Staves are joined into one Tab.
 
 ```html
 <ascii-tabs>
@@ -103,11 +134,10 @@ Features are turned on by composing parts, not by boolean attributes ([ADR 0001]
 ### Read-only
 
 ```html
-<ascii-tabs readonly>
-  <pre>
-1 -3---
-...</pre>
-</ascii-tabs>
+<ascii-tabs id="song" readonly></ascii-tabs>
+<script>
+  song.value = [[[3, null, null, null, null, null]]];
+</script>
 ```
 
 `readonly` disables editing. Hint, delete and add hide themselves even when declared; copy still works.
@@ -174,7 +204,7 @@ The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) an
 | `--ascii-tabs-paper` | `#fdfaf5` | `#1b1a18` |
 | `--ascii-tabs-sheet` | `#fff` | `#232220` |
 | `--ascii-tabs-ink` | `#1a1a1a` | `#f1ede4` |
-| `--ascii-tabs-dash` | `#b3ada1` | `#5f5b53` |
+| `--ascii-tabs-dash` | `#6f6c66` | `#959189` |
 | `--ascii-tabs-line` | `#e7e2d6` | `#36342f` |
 | `--ascii-tabs-hover` | `#f4efe4` | `#2c2a27` |
 | `--ascii-tabs-focus` | `#f6e4df` | `#3a2a1d` |
@@ -207,7 +237,7 @@ Keys: `hint`, `copy`, `copied`, `delete`, `add`, `fret`, `spacing`.
 
 ## Storage
 
-Nothing is stored unless you add the storage part. `<ascii-tabs-storage key="…">` loads the Tabs from `localStorage` under that key on start and saves them on every change. Stored Tabs take precedence over `<pre>` content and an initial `value`; an empty or unreadable store falls back to them. Storage failures (private mode, quota) are ignored. Two instances with different keys don't interfere.
+Nothing is stored unless you add the storage part. `<ascii-tabs-storage key="…">` loads the Tabs from `localStorage` under that key on start and saves them on every change. Stored Tabs take precedence over an initial `value` and `<pre>` content; an empty or unreadable store falls back to them. Storage failures (private mode, quota) are ignored. Two instances with different keys don't interfere.
 
 ```html
 <ascii-tabs>

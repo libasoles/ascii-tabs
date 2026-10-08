@@ -174,7 +174,7 @@ const STYLES = `
   --ascii-tabs-paper: #fdfaf5;
   --ascii-tabs-sheet: #fff;
   --ascii-tabs-ink: #1a1a1a;
-  --ascii-tabs-dash: #b3ada1;
+  --ascii-tabs-dash: #6f6c66;
   --ascii-tabs-line: #e7e2d6;
   --ascii-tabs-hover: #f4efe4;
   --ascii-tabs-focus: #f6e4df;
@@ -189,7 +189,7 @@ const STYLES = `
     --ascii-tabs-paper: #1b1a18;
     --ascii-tabs-sheet: #232220;
     --ascii-tabs-ink: #f1ede4;
-    --ascii-tabs-dash: #5f5b53;
+    --ascii-tabs-dash: #959189;
     --ascii-tabs-line: #36342f;
     --ascii-tabs-hover: #2c2a27;
     --ascii-tabs-focus: #3a2a1d;
@@ -201,7 +201,7 @@ const STYLES = `
   --ascii-tabs-paper: #1b1a18;
   --ascii-tabs-sheet: #232220;
   --ascii-tabs-ink: #f1ede4;
-  --ascii-tabs-dash: #5f5b53;
+  --ascii-tabs-dash: #959189;
   --ascii-tabs-line: #36342f;
   --ascii-tabs-hover: #2c2a27;
   --ascii-tabs-focus: #3a2a1d;
@@ -245,6 +245,9 @@ ascii-tabs .ascii-tabs-add {
   border: 1px dashed var(--ascii-tabs-dash); border-radius: 50%;
 }
 ascii-tabs .ascii-tabs-add svg { width: 22px; height: 22px; }
+/* Buttons with text instead of an icon grow to fit it */
+ascii-tabs .ascii-tabs-button.ascii-tabs-labelled { padding: 0 8px; }
+ascii-tabs .ascii-tabs-add.ascii-tabs-labelled { width: auto; padding: 0 16px; border-radius: 22px; }
 
 ascii-tabs .ascii-tabs-tab { white-space: pre; user-select: none; -webkit-user-select: none; }
 ascii-tabs .ascii-tabs-staff + .ascii-tabs-staff { margin-top: 1.4em; }
@@ -550,9 +553,11 @@ class AsciiTabs extends Base {
     const button = this.#el('button', `ascii-tabs-button ${className}`, parent);
     button.type = 'button';
     button.title = label;
-    button.setAttribute('aria-label', label);
     if (content) button.replaceChildren(...content.map(n => n.cloneNode(true)));
     else button.innerHTML = icon;
+    // Visible text is the accessible name; only icon buttons need one spelled out
+    if (button.textContent.trim()) button.classList.add('ascii-tabs-labelled');
+    else button.setAttribute('aria-label', label);
     button._custom = Boolean(content);
     return button;
   }
