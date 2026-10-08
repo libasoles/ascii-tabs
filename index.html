@@ -29,13 +29,16 @@
   .demo h3 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
   .demo ascii-tabs { font-size: 18px; }
   pre.snippet { padding: 12px; background: var(--code-bg); border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  details.code { margin-bottom: 12px; }
+  details.code > summary { cursor: pointer; color: var(--muted); font-size: 13px; width: fit-content; }
+  details.code > pre.snippet { margin: 8px 0 0; }
   .live-controls button { margin: 8px 4px 0 0; padding: 6px 12px; font: inherit; cursor: pointer; }
 </style>
 </head>
 <body>
 <main>
   <h1>ascii-tabs</h1>
-  <p>A zero-dependency web component to write and show guitar tabs as plain ASCII. Every section shows a feature off and on, one variant after the other, each with its HTML underneath.
+  <p>A zero-dependency web component to write and show guitar tabs as plain ASCII. Every section shows a feature off and on, one variant after the other, each with its code a click away.
      See the <a href="docs/spec-v0.1.md">spec</a>, the <a href="GLOSSARY.md">glossary</a> and the <a href="docs/adr">ADRs</a>.</p>
 
   <section>
@@ -282,13 +285,19 @@ E|-----3-|</pre>
   </section>
 </main>
 <script>
-  // Show each demo's HTML underneath it, captured before the elements upgrade
-  document.querySelectorAll('.demo > .live').forEach(live => {
-    const html = live.innerHTML.replace(/^\n+/, '').trimEnd();
+  // Put each demo's code in a collapsed <details> above it: the HTML (captured
+  // before the elements upgrade) plus any hand-written snippet in the demo
+  document.querySelectorAll('.demo').forEach(demo => {
+    const live = demo.querySelector(':scope > .live');
+    if (!live) return;
+    const details = document.createElement('details');
+    details.className = 'code';
+    details.innerHTML = '<summary>Show code</summary>';
     const pre = document.createElement('pre');
     pre.className = 'snippet';
-    pre.textContent = html;
-    live.after(pre);
+    pre.textContent = live.innerHTML.replace(/^\n+/, '').trimEnd();
+    details.append(pre, ...demo.querySelectorAll(':scope > pre.snippet:not(#json)'));
+    live.before(details);
   });
 </script>
 <script type="module">
