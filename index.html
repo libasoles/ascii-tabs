@@ -232,6 +232,20 @@ E|-----3-|</pre>
   </section>
 
   <section>
+    <h2>Text: lang and messages</h2>
+    <p>English by default. <code>lang="es"</code> switches every built-in string to Spanish. <code>messages</code> is a partial object merged over the active language (aria-labels, tooltips, "copied" feedback, the default Hint). Content inside a part still wins.</p>
+    <div class="pair">
+      <div class="demo"><h3>English (default)</h3><div class="live"><ascii-tabs></ascii-tabs></div></div>
+      <div class="demo"><h3>lang="es"</h3><div class="live"><ascii-tabs lang="es"></ascii-tabs></div></div>
+      <div class="demo"><h3>Custom messages</h3><div class="live"><ascii-tabs id="messages-demo"></ascii-tabs></div>
+        <pre class="snippet">document.getElementById('messages-demo').messages = {
+  hint: 'Tap a string, then type a fret.',
+  copy: 'Copy as ASCII',
+};</pre></div>
+    </div>
+  </section>
+
+  <section>
     <h2>value and change</h2>
     <p>Read and write <code>value</code>; every edit fires <code>change</code>. Listening and writing the value back gives the controlled pattern.</p>
     <div class="pair">
@@ -251,6 +265,10 @@ E|-----3-|</pre>
   });
 </script>
 <script type="module">
+  document.getElementById('messages-demo').messages = {
+    hint: 'Tap a string, then type a fret.',
+    copy: 'Copy as ASCII',
+  };
   const demo = document.getElementById('json-demo');
   const json = document.getElementById('json');
   const show = () => { json.textContent = JSON.stringify(demo.value); };

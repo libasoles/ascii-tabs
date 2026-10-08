@@ -137,7 +137,7 @@ function parse(ascii) {
   return tab;
 }
 
-const MESSAGES = {
+const MESSAGES_EN = {
   hint: 'Click a string and type the fret number.',
   copy: 'Copy tab',
   copied: 'Copied',
@@ -146,6 +146,19 @@ const MESSAGES = {
   fret: 'Fret',
   spacing: 'Spacing',
 };
+
+const MESSAGES_ES = {
+  hint: 'Hacé clic en una cuerda y escribí el número de traste.',
+  copy: 'Copiar tablatura',
+  copied: 'Copiado',
+  delete: 'Eliminar tablatura',
+  add: 'Nueva tablatura',
+  fret: 'Traste',
+  spacing: 'Espaciado',
+};
+
+const PRESETS = { en: MESSAGES_EN, es: MESSAGES_ES };
+
 
 // Lucide icons, inlined
 const svg = paths =>
@@ -350,6 +363,7 @@ class AsciiTabs extends Base {
   #sheetTools = [];
 
   #valueSet = false;
+  #messages = {};
   #declared = null; // parts the consumer wrote as children, null for the default composition
 
   get value() {
@@ -369,7 +383,30 @@ class AsciiTabs extends Base {
     }
   }
 
-  static observedAttributes = ['readonly', 'spacing', 'labels'];
+  static observedAttributes = ['readonly', 'spacing', 'labels', 'lang'];
+
+  // Strings: the `lang` preset (English by default) with `messages` merged over it
+  get #text() {
+    const lang = (this.getAttribute('lang') ?? '').toLowerCase().split('-')[0];
+    return { ...(PRESETS[lang] ?? MESSAGES_EN), ...this.#messages };
+  }
+
+  get messages() {
+    return { ...this.#text };
+  }
+
+  set messages(value) {
+    this.#messages = value && typeof value === 'object' ? { ...value } : {};
+    this.#rebuild();
+  }
+
+  #rebuild() {
+    if (!this.#initialized) return;
+    this.#cur = null;
+    this.#endTyping();
+    this.#buildFrame();
+    this.#buildSheets();
+  }
 
   get theme() {
     const theme = this.getAttribute('theme');
@@ -408,11 +445,7 @@ class AsciiTabs extends Base {
   attributeChangedCallback(name) {
     if (name === 'spacing') return this.#applySpacing();
     if (name === 'labels') return this.#render();
-    if (!this.#initialized) return;
-    this.#cur = null;
-    this.#endTyping();
-    this.#buildFrame();
-    this.#buildSheets();
+    this.#rebuild();
   }
 
   // `spacing` attribute (or property) to state: slider, Staff width and view follow
@@ -431,7 +464,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'readonly', 'spacing', 'labels', 'theme']) {
+    for (const name of ['value', 'readonly', 'spacing', 'labels', 'theme', 'messages']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -507,7 +540,7 @@ class AsciiTabs extends Base {
       if (part.type === 'hint') {
         const hint = this.#el('p', 'ascii-tabs-hint', this);
         if (part.content) hint.replaceChildren(...part.content.map(n => n.cloneNode(true)));
-        else hint.textContent = MESSAGES.hint;
+        else hint.textContent = this.#text.hint;
       } else if (part.type === 'sheet' && !this.#sheetsEl) {
         this.#sheetsEl = this.#el('div', 'ascii-tabs-sheets', this);
         this.#sheetTools = part.tools ?? [];
@@ -515,7 +548,7 @@ class AsciiTabs extends Base {
         const label = this.#el('label', 'ascii-tabs-spacing', this);
         const text = this.#el('span', 'ascii-tabs-spacing-label', label);
         if (part.content) text.replaceChildren(...part.content.map(n => n.cloneNode(true)));
-        else text.textContent = MESSAGES.spacing;
+        else text.textContent = this.#text.spacing;
         const slider = this.#el('input', 'ascii-tabs-spacing-input', label);
         slider.type = 'range';
         slider.min = MIN_SPACING;
@@ -524,7 +557,7 @@ class AsciiTabs extends Base {
         slider.value = this.#spacing;
         slider.addEventListener('input', () => (this.spacing = slider.value));
       } else if (part.type === 'add') {
-        const add = this.#button('ascii-tabs-add', MESSAGES.add, ICON_PLUS, this, part.content);
+        const add = this.#button('ascii-tabs-add', this.#text.add, ICON_PLUS, this, part.content);
         add.addEventListener('pointerdown', e => e.preventDefault()); // stay focused through the click
       }
     }
@@ -533,7 +566,7 @@ class AsciiTabs extends Base {
     input.setAttribute('autocomplete', 'off');
     input.setAttribute('autocorrect', 'off');
     input.setAttribute('spellcheck', 'false');
-    input.setAttribute('aria-label', MESSAGES.fret);
+    input.setAttribute('aria-label', this.#text.fret);
     input.setAttribute('tabindex', '-1');
     input.addEventListener('keydown', this.#onKeyDown);
     input.addEventListener('input', this.#onInput);
@@ -559,8 +592,8 @@ class AsciiTabs extends Base {
       sheet.dataset.t = t;
       const tools = this.#el('div', 'ascii-tabs-tools', sheet);
       for (const tool of this.#sheetTools) {
-        if (tool.type === 'copy') this.#button('ascii-tabs-copy', MESSAGES.copy, ICON_COPY, tools, tool.content);
-        else if (tool.type === 'delete') this.#button('ascii-tabs-delete', MESSAGES.delete, ICON_TRASH, tools, tool.content);
+        if (tool.type === 'copy') this.#button('ascii-tabs-copy', this.#text.copy, ICON_COPY, tools, tool.content);
+        else if (tool.type === 'delete') this.#button('ascii-tabs-delete', this.#text.delete, ICON_TRASH, tools, tool.content);
       }
       if (!tools.children.length) tools.remove();
       this.#tabEls.push(this.#el('div', 'ascii-tabs-tab', sheet));
@@ -841,10 +874,10 @@ class AsciiTabs extends Base {
 
   #flashCopied(button) {
     button.classList.add('ascii-tabs-done');
-    button.title = MESSAGES.copied;
+    button.title = this.#text.copied;
     clearTimeout(button._timer);
     const restore = () => {
-      button.title = MESSAGES.copy;
+      button.title = this.#text.copy;
       button.classList.remove('ascii-tabs-done');
     };
     if (button._custom) {
