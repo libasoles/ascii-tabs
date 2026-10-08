@@ -246,6 +246,17 @@ E|-----3-|</pre>
   </section>
 
   <section>
+    <h2>Storage</h2>
+    <p>Opt-in persistence. <code>&lt;ascii-tabs-storage key="…"&gt;</code> loads the Tabs from <code>localStorage</code> under that key on start and saves them on every change; stored content wins over <code>&lt;pre&gt;</code>. Without the part nothing is stored. Type something and reload this page.</p>
+    <div class="pair">
+      <div class="demo"><h3>Without storage</h3><div class="live"><ascii-tabs></ascii-tabs></div></div>
+      <div class="demo"><h3>With storage</h3><div class="live"><ascii-tabs>
+  <ascii-tabs-storage key="ascii-tabs-demo"></ascii-tabs-storage>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
     <h2>value and change</h2>
     <p>Read and write <code>value</code>; every edit fires <code>change</code>. Listening and writing the value back gives the controlled pattern.</p>
     <div class="pair">
