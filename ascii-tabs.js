@@ -64,6 +64,65 @@ function format(tab, { spacing = DEFAULT_SPACING, width = Infinity } = {}) {
     .join('\n\n');
 }
 
+const LABEL_PATTERN = /^\s*(?:[1-6][ \t]?|[eBGDAE])\|?/;
+
+// Plain ASCII to one Tab. Lenient: both String label styles, any number of dashes.
+// Columns are inferred from the horizontal position of each Fret. Malformed input yields an empty Tab.
+function parse(ascii) {
+  const lines = String(ascii).split(/\r?\n/);
+  const staves = [];
+  let group = [];
+  const flush = () => {
+    if (!group.length) return true;
+    if (group.length !== STRING_COUNT) return false;
+    staves.push(group);
+    group = [];
+    return true;
+  };
+  const fail = reason => {
+    console.error(`ascii-tabs: cannot parse tab (${reason})`);
+    return [];
+  };
+  for (const line of lines) {
+    if (!line.trim()) {
+      if (!flush()) return fail('a Staff needs six Strings');
+      continue;
+    }
+    const label = LABEL_PATTERN.exec(line);
+    if (!label) return fail(`unexpected line "${line.trim()}"`);
+    const body = line.slice(label[0].length);
+    if (!/^[-|\d\s]*$/.test(body)) return fail(`unexpected characters in "${line.trim()}"`);
+    group.push(body);
+  }
+  if (!flush()) return fail('a Staff needs six Strings');
+
+  const tab = [];
+  for (const staff of staves) {
+    const columns = new Map(); // start position -> { digits, frets }
+    for (let s = 0; s < STRING_COUNT; s++) {
+      for (const match of staff[s].matchAll(/\d+/g)) {
+        const fret = Number(match[0]);
+        if (!isFret(fret)) return fail(`fret ${match[0]} is out of range`);
+        const at = columns.get(match.index) ?? { digits: 0, frets: emptyColumn() };
+        at.digits = Math.max(at.digits, match[0].length);
+        at.frets[s] = fret;
+        columns.set(match.index, at);
+      }
+    }
+    const starts = [...columns.keys()].sort((a, b) => a - b);
+    // One Column is the smallest step between Frets; wider gaps hide empty Columns
+    const steps = starts.slice(1).map((start, i) => start - starts[i] - (columns.get(starts[i]).digits - 1));
+    const unit = Math.min(...steps.filter(step => step > 0));
+    starts.forEach((start, i) => {
+      if (i > 0 && steps[i - 1] > 0) {
+        for (let n = Math.round(steps[i - 1] / unit) - 1; n > 0; n--) tab.push(emptyColumn());
+      }
+      tab.push(columns.get(start).frets);
+    });
+  }
+  return tab;
+}
+
 const MESSAGES = {
   hint: 'Click a string and type the fret number.',
   copy: 'Copy tab',
@@ -229,6 +288,8 @@ class AsciiTabs extends Base {
   #tabEls = [];
   #sheetEls = [];
 
+  #valueSet = false;
+
   get value() {
     return this.#tabs.map(tab => tab.slice(0, lastUsed(tab) + 1).map(column => [...column]));
   }
@@ -236,6 +297,7 @@ class AsciiTabs extends Base {
   set value(value) {
     const tabs = normalizeValue(value);
     if (!tabs) return;
+    this.#valueSet = true;
     this.#tabs = tabs;
     this.#cur = null;
     this.#draft = null;
@@ -256,6 +318,10 @@ class AsciiTabs extends Base {
     }
     if (!this.#initialized) {
       this.#initialized = true;
+      if (!this.#valueSet) {
+        const pres = [...this.querySelectorAll('pre')];
+        if (pres.length) this.#tabs = pres.map(pre => parse(pre.textContent));
+      }
       injectStyles();
       this.#buildFrame();
       this.#buildSheets();
@@ -645,4 +711,4 @@ if (typeof customElements !== 'undefined' && !customElements.get('ascii-tabs')) 
   customElements.define('ascii-tabs', AsciiTabs);
 }
 
-export { AsciiTabs };
+export { AsciiTabs, parse, format };
