@@ -9,8 +9,8 @@ The starting code is the editor in `guitar-chords/src/site/tab-editor.js` (more 
 ## Distribution
 
 - One ES module, `ascii-tabs.js`, with no build step and no dependencies.
-- Published only on GitHub (no npm), at `libasoles/ascii-tabs`, MIT, tagged `v0.1.0` (latest `v0.1.1`).
-- Usage: `<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.1/ascii-tabs.js">`.
+- Published only on GitHub (no npm), at `libasoles/ascii-tabs`, MIT, tagged `v0.1.0` (latest `v0.1.2`).
+- Usage: `<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.2/ascii-tabs.js">`.
 - Exports `parse` and `format` as pure functions.
 
 ## Composition (see ADR 0001)
@@ -51,6 +51,7 @@ The starting code is the editor in `guitar-chords/src/site/tab-editor.js` (more 
 | `readonly` | present / absent | editable |
 | `spacing` | integer 1–6 | 2 |
 | `labels` | `notes` | numbers |
+| `tools` | `top` | `side` |
 | `theme` | `light`, `dark` | follows `prefers-color-scheme` |
 | `lang` | `es` | English |
 
@@ -84,7 +85,7 @@ The starting code is the editor in `guitar-chords/src/site/tab-editor.js` (more 
 
 ## Demo and docs
 
-- The repo root `index.html` is the GitHub Page, in English. It has one section per feature, with off and on side by side and the HTML snippet underneath: editable vs read-only, copy, hint, add/delete, spacing slider, initial `spacing`, number vs note labels, light/dark/auto/custom themes, ASCII `<pre>` input, `value` + `change` with a live JSON panel, storage, custom controls through the imperative API, and `lang="es"`/`messages`.
+- The repo root `index.html` is the GitHub Page, in English. It has one section per feature, with off and on side by side and the HTML snippet underneath: editable vs read-only, copy, hint, add/delete, spacing slider, initial `spacing`, number vs note labels, side vs top tool position, light/dark/auto/custom themes, ASCII `<pre>` input, `value` + `change` with a live JSON panel, storage, custom controls through the imperative API, and `lang="es"`/`messages`.
 - The README is in English, with concrete copy-paste examples for each of those.
 
 ## Tests

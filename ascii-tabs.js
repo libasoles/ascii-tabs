@@ -16,6 +16,7 @@ const LABELS = {
   notes: ['e|', 'B|', 'G|', 'D|', 'A|', 'E|'],
 };
 const labelStyle = value => (value === 'notes' ? 'notes' : 'numbers');
+const toolsPosition = value => (value === 'top' ? 'top' : 'side');
 
 const emptyColumn = () => Array(STRING_COUNT).fill(null);
 
@@ -219,14 +220,21 @@ ascii-tabs .ascii-tabs-hint { margin: 0 0 16px; font-size: .7em; color: var(--as
 ascii-tabs .ascii-tabs-spacing { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; font-size: 14px; }
 ascii-tabs .ascii-tabs-spacing-input { accent-color: var(--ascii-tabs-accent); }
 ascii-tabs .ascii-tabs-sheet {
-  position: relative;
-  padding: 26px 20px 20px;
+  display: flex; gap: 12px;
+  padding: 20px;
   background: var(--ascii-tabs-sheet);
   border: 1px solid var(--ascii-tabs-line);
   border-radius: 8px;
 }
 ascii-tabs .ascii-tabs-sheet + .ascii-tabs-sheet { margin-top: 24px; }
-ascii-tabs .ascii-tabs-tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; }
+/* Sheet tools sit in a column beside the Staves (tools="side", the default) or in a row above them
+   (tools="top"), never over a String. Negative margins tuck them into the Sheet's corner. */
+ascii-tabs .ascii-tabs-tools {
+  order: 1; display: flex; flex-direction: column; gap: 2px;
+  align-self: flex-start; margin: -14px -14px 0 0;
+}
+ascii-tabs[tools="top"] .ascii-tabs-sheet { flex-direction: column; gap: 8px; }
+ascii-tabs[tools="top"] .ascii-tabs-tools { order: -1; flex-direction: row; align-self: flex-end; }
 ascii-tabs .ascii-tabs-button {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 32px; height: 32px; padding: 0;
@@ -249,7 +257,7 @@ ascii-tabs .ascii-tabs-add svg { width: 22px; height: 22px; }
 ascii-tabs .ascii-tabs-button.ascii-tabs-labelled { padding: 0 8px; }
 ascii-tabs .ascii-tabs-add.ascii-tabs-labelled { width: auto; padding: 0 16px; border-radius: 22px; }
 
-ascii-tabs .ascii-tabs-tab { white-space: pre; user-select: none; -webkit-user-select: none; }
+ascii-tabs .ascii-tabs-tab { flex: 1; min-width: 0; white-space: pre; user-select: none; -webkit-user-select: none; }
 ascii-tabs .ascii-tabs-staff + .ascii-tabs-staff { margin-top: 1.4em; }
 ascii-tabs .ascii-tabs-line { display: block; height: 1.5em; line-height: 1.5em; }
 ascii-tabs .ascii-tabs-label, ascii-tabs .ascii-tabs-fill { color: var(--ascii-tabs-dash); }
@@ -413,7 +421,7 @@ class AsciiTabs extends Base {
     }
   }
 
-  static observedAttributes = ['readonly', 'spacing', 'labels', 'lang'];
+  static observedAttributes = ['readonly', 'spacing', 'labels', 'lang', 'tools'];
 
   // Strings: the `lang` preset (English by default) with `messages` merged over it
   get #text() {
@@ -456,6 +464,14 @@ class AsciiTabs extends Base {
     this.setAttribute('labels', labelStyle(value));
   }
 
+  get tools() {
+    return toolsPosition(this.getAttribute('tools'));
+  }
+
+  set tools(value) {
+    this.setAttribute('tools', toolsPosition(value));
+  }
+
   get spacing() {
     return this.#spacing;
   }
@@ -475,6 +491,8 @@ class AsciiTabs extends Base {
   attributeChangedCallback(name) {
     if (name === 'spacing') return this.#applySpacing();
     if (name === 'labels') return this.#render();
+    // Moving the tools changes the Staves' width without resizing the element
+    if (name === 'tools') return this.#measure();
     this.#rebuild();
   }
 
@@ -494,7 +512,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'readonly', 'spacing', 'labels', 'theme', 'messages']) {
+    for (const name of ['value', 'readonly', 'spacing', 'labels', 'tools', 'theme', 'messages']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
