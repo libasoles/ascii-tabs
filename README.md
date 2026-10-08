@@ -27,7 +27,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.1/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.2/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -108,7 +108,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.1/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.2/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
@@ -193,6 +193,15 @@ Strings are labelled `1`–`6` by default, on screen and in copied text. `labels
 ```html
 <ascii-tabs></ascii-tabs>                  <!-- 1 -3--5- -->
 <ascii-tabs labels="notes"></ascii-tabs>   <!-- e|-3--5- -->
+```
+
+## Tool position
+
+A Sheet's tools (copy, delete) stand in a column to the right of the Staves by default, and the Staves leave room for them. `tools="top"` lines them up in a row above the first String instead. Also available as the `tools` property.
+
+```html
+<ascii-tabs></ascii-tabs>              <!-- column beside the Staves -->
+<ascii-tabs tools="top"></ascii-tabs>  <!-- row above them -->
 ```
 
 ## Themes

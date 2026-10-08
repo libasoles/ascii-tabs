@@ -7,4 +7,4 @@
 - A bare `<ascii-tabs>` uses a default composition (hint, copy, delete, add; copy only when `readonly`), so the simplest case is still one tag.
 - Removing a single default feature means writing out the whole composition. We accept that verbosity as the price of having no flags.
 - `readonly` is the only mode attribute. Parts that only make sense while editing (hint, delete, add) hide themselves in read-only even when they are declared.
-- Values that are data rather than features stay as attributes: `spacing`, `labels`, `theme`, `lang`.
+- Values that are data rather than features stay as attributes: `spacing`, `labels`, `tools`, `theme`, `lang`.

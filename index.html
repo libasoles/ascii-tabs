@@ -227,6 +227,31 @@ E|-----3-|</pre>
   </section>
 
   <section>
+    <h2>Tool position</h2>
+    <p>The Sheet's tools stand in a column beside the Staves by default; <code>tools="top"</code> lines them up in a row above the first String.</p>
+    <div class="variants">
+      <div class="demo"><h3>Side (default)</h3><div class="live"><ascii-tabs>
+  <pre>
+1 -3--5--7-
+2 ----------
+3 ----------
+4 ----------
+5 ----------
+6 ----------</pre>
+</ascii-tabs></div></div>
+      <div class="demo"><h3>tools="top"</h3><div class="live"><ascii-tabs tools="top">
+  <pre>
+1 -3--5--7-
+2 ----------
+3 ----------
+4 ----------
+5 ----------
+6 ----------</pre>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
     <h2>Themes</h2>
     <p>Without <code>theme</code> it follows <code>prefers-color-scheme</code>. <code>theme="light"</code> or <code>"dark"</code> forces a palette. Any <code>--ascii-tabs-*</code> custom property overrides a colour. The element paints only its Sheets, never the page background.</p>
     <div class="variants">
