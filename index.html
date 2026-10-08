@@ -32,6 +32,7 @@
   details.code { margin-bottom: 12px; }
   details.code > summary { cursor: pointer; color: var(--muted); font-size: 13px; width: fit-content; }
   details.code > pre.snippet { margin: 8px 0 0; }
+  textarea.json { box-sizing: border-box; width: 100%; padding: 12px; background: var(--code-bg); color: var(--fg); border: 1px solid var(--rule); border-radius: 6px; font: 13px ui-monospace, monospace; resize: vertical; }
   .live-controls button { margin: 8px 4px 0 0; padding: 6px 12px; font: inherit; cursor: pointer; }
   :root { color-scheme: light dark; }
   /* The element never paints the page, so the page follows the OS like the element does */
@@ -295,10 +296,25 @@ E|-----3-|</pre>
 
   <section>
     <h2>value and change</h2>
-    <p>Read and write <code>value</code>; every edit fires <code>change</code>. Listening and writing the value back gives the controlled pattern.</p>
+    <p>Read and write <code>value</code>; every edit fires <code>change</code>. The component is uncontrolled by default. For the controlled pattern, keep the Tabs in your own state: update it on <code>change</code> and write <code>value</code> back when the state changes elsewhere. Edit the Tab or the JSON below; each one updates the other.</p>
     <div class="variants">
-      <div class="demo"><div class="live"><ascii-tabs id="json-demo"></ascii-tabs></div></div>
-      <div class="demo"><h3>value</h3><pre class="snippet" id="json">[[]]</pre></div>
+      <div class="demo"><div class="live"><ascii-tabs id="json-demo"></ascii-tabs></div>
+        <pre class="snippet">let state = [[]];
+const tabs = document.getElementById('json-demo');
+const json = document.getElementById('json');
+
+// Component → state
+tabs.addEventListener('change', e => {
+  state = e.detail.value;
+  json.value = JSON.stringify(state);
+});
+
+// State → component
+json.addEventListener('input', () => {
+  try { state = JSON.parse(json.value); } catch { return; }
+  tabs.value = state;
+});</pre></div>
+      <div class="demo"><h3>value (editable JSON)</h3><textarea id="json" class="json" rows="4" spellcheck="false" aria-label="value as JSON"></textarea></div>
     </div>
   </section>
 </main>
@@ -314,7 +330,7 @@ E|-----3-|</pre>
     const pre = document.createElement('pre');
     pre.className = 'snippet';
     pre.textContent = live.innerHTML.replace(/^\n+/, '').trimEnd();
-    details.append(pre, ...demo.querySelectorAll(':scope > pre.snippet:not(#json)'));
+    details.append(pre, ...demo.querySelectorAll(':scope > pre.snippet'));
     live.before(details);
   });
   // Snippets scroll sideways, so keyboard users need to be able to focus them
@@ -333,11 +349,19 @@ E|-----3-|</pre>
     hint: 'Tap a string, then type a fret.',
     copy: 'Copy as ASCII',
   };
-  const demo = document.getElementById('json-demo');
+  // Controlled pattern: the page owns the state, the component mirrors it
+  const tabs = document.getElementById('json-demo');
   const json = document.getElementById('json');
-  const show = () => { json.textContent = JSON.stringify(demo.value); };
-  demo.addEventListener('change', show);
-  show();
+  let state = tabs.value;
+  json.value = JSON.stringify(state);
+  tabs.addEventListener('change', e => {
+    state = e.detail.value;
+    json.value = JSON.stringify(state);
+  });
+  json.addEventListener('input', () => {
+    try { state = JSON.parse(json.value); } catch { return; }
+    tabs.value = state;
+  });
 </script>
 </body>
 </html>
