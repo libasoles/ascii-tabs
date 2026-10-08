@@ -56,4 +56,60 @@ format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
 
 `format` writes number labels, Spacing 2 by default, widens a Column that holds a two-digit Fret on every String, and cuts each Staff right after its last Column. Malformed ASCII logs a console error and parses to an empty Tab.
 
+## Composition
+
+Features are turned on by composing parts, not by boolean attributes ([ADR 0001](docs/adr/0001-composition-over-boolean-props.md)). With no part children you get the default composition: hint, a Sheet with copy and delete, and add (read-only: just a Sheet with copy). With any part child, only the parts you declare appear. Content inside a part replaces its default icon or text.
+
+```html
+<ascii-tabs>
+  <ascii-tabs-hint></ascii-tabs-hint>
+  <ascii-tabs-sheet>
+    <ascii-tabs-copy></ascii-tabs-copy>
+    <ascii-tabs-delete></ascii-tabs-delete>
+  </ascii-tabs-sheet>
+  <ascii-tabs-add></ascii-tabs-add>
+</ascii-tabs>
+```
+
+### Read-only
+
+```html
+<ascii-tabs readonly>
+  <pre>
+1 -3---
+...</pre>
+</ascii-tabs>
+```
+
+`readonly` disables editing. Hint, delete and add hide themselves even when declared; copy still works.
+
+### Copy, hint, add and delete
+
+```html
+<!-- No copy button -->
+<ascii-tabs><ascii-tabs-sheet></ascii-tabs-sheet></ascii-tabs>
+
+<!-- Custom copy text, custom hint -->
+<ascii-tabs>
+  <ascii-tabs-hint>Pick a string, then type a fret.</ascii-tabs-hint>
+  <ascii-tabs-sheet><ascii-tabs-copy>Copy ASCII</ascii-tabs-copy></ascii-tabs-sheet>
+  <ascii-tabs-add>+ New tab</ascii-tabs-add>
+</ascii-tabs>
+```
+
+Delete never asks for confirmation. With several Tabs it removes its Tab; with one Tab it clears it, and is disabled while that Tab is empty.
+
+### Custom controls
+
+Skip the parts and call the root's methods:
+
+```html
+<ascii-tabs id="tabs"></ascii-tabs>
+<button onclick="tabs.copy(0)">Copy</button>
+<button onclick="tabs.addTab()">Add</button>
+<button onclick="tabs.removeTab(0)">Delete</button>
+```
+
+`copy(index)`, `addTab()` and `removeTab(index)` behave like the built-in buttons, including the delete rules.
+
 MIT licensed.

@@ -223,6 +223,8 @@ ascii-tabs .ascii-tabs-cell.ascii-tabs-drop {
   outline: 1px dashed var(--ascii-tabs-accent);
 }
 
+ascii-tabs[readonly] .ascii-tabs-cell { pointer-events: none; cursor: default; }
+
 /* Captures typing (and opens the numeric keyboard on phones) while staying invisible */
 ascii-tabs .ascii-tabs-input {
   position: absolute; width: 1px; height: 1px; opacity: 0;
@@ -266,7 +268,22 @@ async function copyText(text) {
   area.remove();
 }
 
-const COMPOSITION = ['hint', 'sheet', 'add'];
+const PART_PREFIX = 'ascii-tabs-';
+const isPart = node => node.nodeType === 1 && node.localName.startsWith(PART_PREFIX);
+
+// A part is { type, content, tools }: `content` replaces its default icon or text, `tools` are a sheet's parts
+function readPart(el) {
+  const type = el.localName.slice(PART_PREFIX.length);
+  const hasContent = [...el.childNodes].some(n => (n.nodeType === 3 ? n.textContent.trim() : n.nodeType === 1 && !isPart(n)));
+  const part = { type, content: hasContent ? [...el.childNodes].map(n => n.cloneNode(true)) : null };
+  if (type === 'sheet') part.tools = [...el.children].filter(isPart).map(readPart);
+  return part;
+}
+
+const DEFAULT_SHEET_TOOLS = [{ type: 'copy' }, { type: 'delete' }];
+const DEFAULT_EDITABLE = [{ type: 'hint' }, { type: 'sheet', tools: DEFAULT_SHEET_TOOLS }, { type: 'add' }];
+const DEFAULT_READONLY = [{ type: 'sheet', tools: [{ type: 'copy' }] }];
+const EDITING_PARTS = new Set(['hint', 'delete', 'add']);
 
 // Lets the module load in Node, where `parse` and `format` are tested
 const Base = typeof HTMLElement !== 'undefined' ? HTMLElement : class {};
@@ -287,8 +304,10 @@ class AsciiTabs extends Base {
   #sheetsEl = null;
   #tabEls = [];
   #sheetEls = [];
+  #sheetTools = [];
 
   #valueSet = false;
+  #declared = null; // parts the consumer wrote as children, null for the default composition
 
   get value() {
     return this.#tabs.map(tab => tab.slice(0, lastUsed(tab) + 1).map(column => [...column]));
@@ -307,9 +326,32 @@ class AsciiTabs extends Base {
     }
   }
 
+  static observedAttributes = ['readonly'];
+
+  get readonly() {
+    return this.hasAttribute('readonly');
+  }
+
+  set readonly(on) {
+    this.toggleAttribute('readonly', Boolean(on));
+  }
+
+  attributeChangedCallback() {
+    if (!this.#initialized) return;
+    this.#cur = null;
+    this.#endTyping();
+    this.#buildFrame();
+    this.#buildSheets();
+  }
+
   connectedCallback() {
+    // While the page is still being parsed, the children are not there yet
+    if (!this.#initialized && document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => this.isConnected && this.connectedCallback(), { once: true });
+      return;
+    }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value']) {
+    for (const name of ['value', 'readonly']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -322,6 +364,8 @@ class AsciiTabs extends Base {
         const pres = [...this.querySelectorAll('pre')];
         if (pres.length) this.#tabs = pres.map(pre => parse(pre.textContent));
       }
+      const parts = [...this.children].filter(isPart);
+      if (parts.length) this.#declared = parts.map(readPart);
       injectStyles();
       this.#buildFrame();
       this.#buildSheets();
@@ -355,24 +399,40 @@ class AsciiTabs extends Base {
     return el;
   }
 
-  #button(className, label, icon, parent) {
+  #button(className, label, icon, parent, content) {
     const button = this.#el('button', `ascii-tabs-button ${className}`, parent);
     button.type = 'button';
     button.title = label;
     button.setAttribute('aria-label', label);
-    button.innerHTML = icon;
+    if (content) button.replaceChildren(...content.map(n => n.cloneNode(true)));
+    else button.innerHTML = icon;
+    button._custom = Boolean(content);
     return button;
+  }
+
+  // The parts to render: the declared ones, or the default composition. Read-only hides the editing parts
+  #parts() {
+    const parts = this.#declared ?? (this.readonly ? DEFAULT_READONLY : DEFAULT_EDITABLE);
+    const visible = list => list.filter(part => !(this.readonly && EDITING_PARTS.has(part.type)));
+    return visible(parts).map(part => (part.tools ? { ...part, tools: visible(part.tools) } : part));
   }
 
   #buildFrame() {
     this.textContent = '';
-    for (const part of COMPOSITION) {
-      if (part === 'hint') {
-        this.#el('p', 'ascii-tabs-hint', this).textContent = MESSAGES.hint;
-      } else if (part === 'sheet') {
+    this.#sheetsEl = null;
+    this.#sheetTools = [];
+    this.#tabEls = [];
+    this.#sheetEls = [];
+    for (const part of this.#parts()) {
+      if (part.type === 'hint') {
+        const hint = this.#el('p', 'ascii-tabs-hint', this);
+        if (part.content) hint.replaceChildren(...part.content.map(n => n.cloneNode(true)));
+        else hint.textContent = MESSAGES.hint;
+      } else if (part.type === 'sheet' && !this.#sheetsEl) {
         this.#sheetsEl = this.#el('div', 'ascii-tabs-sheets', this);
-      } else if (part === 'add') {
-        const add = this.#button('ascii-tabs-add', MESSAGES.add, ICON_PLUS, this);
+        this.#sheetTools = part.tools ?? [];
+      } else if (part.type === 'add') {
+        const add = this.#button('ascii-tabs-add', MESSAGES.add, ICON_PLUS, this, part.content);
         add.addEventListener('pointerdown', e => e.preventDefault()); // stay focused through the click
       }
     }
@@ -382,6 +442,7 @@ class AsciiTabs extends Base {
     input.setAttribute('autocorrect', 'off');
     input.setAttribute('spellcheck', 'false');
     input.setAttribute('aria-label', MESSAGES.fret);
+    input.setAttribute('tabindex', '-1');
     input.addEventListener('keydown', this.#onKeyDown);
     input.addEventListener('input', this.#onInput);
     input.addEventListener('focus', () => this.classList.add('ascii-tabs-editing'));
@@ -405,8 +466,11 @@ class AsciiTabs extends Base {
       const sheet = this.#el('section', 'ascii-tabs-sheet', this.#sheetsEl);
       sheet.dataset.t = t;
       const tools = this.#el('div', 'ascii-tabs-tools', sheet);
-      this.#button('ascii-tabs-copy', MESSAGES.copy, ICON_COPY, tools);
-      this.#button('ascii-tabs-delete', MESSAGES.delete, ICON_TRASH, tools);
+      for (const tool of this.#sheetTools) {
+        if (tool.type === 'copy') this.#button('ascii-tabs-copy', MESSAGES.copy, ICON_COPY, tools, tool.content);
+        else if (tool.type === 'delete') this.#button('ascii-tabs-delete', MESSAGES.delete, ICON_TRASH, tools, tool.content);
+      }
+      if (!tools.children.length) tools.remove();
       this.#tabEls.push(this.#el('div', 'ascii-tabs-tab', sheet));
       this.#sheetEls.push(sheet);
     });
@@ -432,10 +496,11 @@ class AsciiTabs extends Base {
   // Always leave room after the last Fret; a new Staff appears when you write past the end
   #fit(t) {
     const tab = this.#tabs[t];
-    const need = Math.max(lastUsed(tab) + 2, this.#cur && this.#cur.t === t ? this.#cur.c + 1 : 0, 1);
+    const need = Math.max(lastUsed(tab) + (this.readonly ? 1 : 2), this.#cur && this.#cur.t === t ? this.#cur.c + 1 : 0, 1);
     while (tab.length < need) tab.push(emptyColumn());
     tab.length = need;
     let staves = layout(tab, this.#spacing, this.#capacity);
+    if (this.readonly) return (this.#staves[t] = staves);
     // Fill the last Staff with empty Columns so every slot can be clicked
     const [start] = staves[staves.length - 1];
     let used = 0;
@@ -616,7 +681,7 @@ class AsciiTabs extends Base {
 
   #onPointerDown = e => {
     const cell = e.target.closest('.ascii-tabs-cell');
-    if (!cell || e.button !== 0) return;
+    if (!cell || e.button !== 0 || this.readonly) return;
     e.preventDefault(); // keep focus on the hidden input
     const p = this.#position(cell);
     this.#goTo(p.t, p.c, p.s);
@@ -666,37 +731,57 @@ class AsciiTabs extends Base {
   #onClick = async e => {
     const button = e.target.closest('.ascii-tabs-button');
     if (!button || !this.contains(button)) return;
-    if (button.classList.contains('ascii-tabs-add')) return this.#addTab();
+    if (button.classList.contains('ascii-tabs-add')) return this.addTab();
     const t = +button.closest('.ascii-tabs-sheet').dataset.t;
-    if (button.classList.contains('ascii-tabs-copy')) return this.#copy(t, button);
-    if (button.classList.contains('ascii-tabs-delete')) return this.#removeTab(t);
+    if (button.classList.contains('ascii-tabs-copy')) return this.copy(t);
+    if (button.classList.contains('ascii-tabs-delete')) return this.removeTab(t);
   };
 
-  async #copy(t, button) {
-    await copyText(format(this.#tabs[t], { spacing: this.#spacing, width: this.#capacity + LABEL_WIDTH }));
+  // Copies Tab `index` as plain ASCII, like the copy button does
+  async copy(index = 0) {
+    const tab = this.#tabs[index];
+    if (!tab) return;
+    await copyText(format(tab, { spacing: this.#spacing, width: this.#capacity + LABEL_WIDTH }));
+    const button = this.#sheetEls[index]?.querySelector('.ascii-tabs-copy');
     if (!button) return;
-    button.innerHTML = ICON_CHECK;
-    button.title = MESSAGES.copied;
+    this.#flashCopied(button);
+  }
+
+  #flashCopied(button) {
     button.classList.add('ascii-tabs-done');
+    button.title = MESSAGES.copied;
     clearTimeout(button._timer);
-    button._timer = setTimeout(() => {
-      button.innerHTML = ICON_COPY;
+    const restore = () => {
       button.title = MESSAGES.copy;
       button.classList.remove('ascii-tabs-done');
+    };
+    if (button._custom) {
+      button._timer = setTimeout(restore, 1200);
+      return;
+    }
+    button.innerHTML = ICON_CHECK;
+    button._timer = setTimeout(() => {
+      button.innerHTML = ICON_COPY;
+      restore();
     }, 1200);
   }
 
-  #addTab() {
+  addTab() {
+    if (this.readonly) return;
     this.#endTyping();
     this.#tabs.push([]);
     this.#buildSheets();
-    this.#goTo(this.#tabs.length - 1, 0, 0);
-    this.#input.focus({ preventScroll: true });
+    if (this.#sheetsEl) {
+      this.#goTo(this.#tabs.length - 1, 0, 0);
+      this.#input.focus({ preventScroll: true });
+    }
     this.#emitChange();
   }
 
   // More than one Tab: remove it. A single Tab is cleared instead, and only when it has content
-  #removeTab(t) {
+  removeTab(index) {
+    const t = Number(index);
+    if (this.readonly || !this.#tabs[t]) return;
     if (this.#tabs.length === 1 && lastUsed(this.#tabs[0]) < 0) return;
     this.#endTyping();
     this.#cur = null;

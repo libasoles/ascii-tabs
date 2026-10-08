@@ -6,57 +6,157 @@
 <title>ascii-tabs</title>
 <script type="module" src="./ascii-tabs.js"></script>
 <style>
-  body { margin: 0; background: #fdfaf5; color: #1a1a1a; font-family: system-ui, sans-serif; }
-  main { max-width: 1000px; margin: 40px auto; padding: 0 16px; }
+  body { margin: 0; background: #fdfaf5; color: #1a1a1a; font-family: system-ui, sans-serif; line-height: 1.5; }
+  main { max-width: 1100px; margin: 40px auto; padding: 0 16px; }
   h1 { margin-top: 0; }
-  section { margin: 40px 0; }
-  pre.snippet { padding: 12px; background: #f4efe4; border-radius: 6px; overflow-x: auto; font-size: 14px; }
+  section { margin: 56px 0; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px; align-items: start; }
+  .demo h3 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: #8b0000; }
+  .demo { min-width: 0; font-size: 14px; }
+  .demo ascii-tabs { font-size: 18px; }
+  pre.snippet { padding: 12px; background: #f4efe4; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  .live-controls button { margin: 8px 4px 0 0; padding: 6px 12px; font: inherit; cursor: pointer; }
 </style>
 </head>
 <body>
 <main>
   <h1>ascii-tabs</h1>
-  <p>A zero-dependency web component to write and show guitar tabs as plain ASCII.</p>
+  <p>A zero-dependency web component to write and show guitar tabs as plain ASCII. Every section shows a feature off and on, with its HTML underneath.
+     See the <a href="docs/spec-v0.1.md">spec</a>, the <a href="GLOSSARY.md">glossary</a> and the <a href="docs/adr">ADRs</a>.</p>
 
   <section>
-    <h2>Editable tab</h2>
-    <ascii-tabs id="demo"></ascii-tabs>
-    <pre class="snippet">&lt;ascii-tabs&gt;&lt;/ascii-tabs&gt;</pre>
-    <h3>value</h3>
-    <pre class="snippet" id="json">[[]]</pre>
-  </section>
-
-  <section>
-    <h2>Initial content from ASCII</h2>
-    <ascii-tabs>
-      <pre>
+    <h2>Editable vs read-only</h2>
+    <p>Bare <code>&lt;ascii-tabs&gt;</code> is editable. <code>readonly</code> shows only copy on each Sheet.</p>
+    <div class="pair">
+      <div class="demo"><h3>Editable (default)</h3><div class="live"><ascii-tabs></ascii-tabs></div></div>
+      <div class="demo"><h3>readonly</h3><div class="live"><ascii-tabs readonly>
+  <pre>
 1 -----------------
 2 -----------------
 3 -2-----2---------
 4 -------------0---
 5 ---0---------0---
 6 -----------------</pre>
-      <pre>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Initial content from ASCII</h2>
+    <p>A <code>&lt;pre&gt;</code> per Tab becomes its initial value. Number labels and note labels both work, with any number of dashes.</p>
+    <div class="demo"><div class="live"><ascii-tabs>
+  <pre>
+1 ---------
+2 ---------
+3 -2---2---
+4 ---------
+5 -0---0---
+6 ---------</pre>
+  <pre>
 e|-0--3--|
 B|-1--0--|
 G|-0--0--|
 D|-2--0--|
 A|-3--2--|
 E|-----3-|</pre>
-    </ascii-tabs>
-    <pre class="snippet">&lt;ascii-tabs&gt;
-  &lt;pre&gt;
-1 -------
+</ascii-tabs></div></div>
+  </section>
+
+  <section>
+    <h2>Copy</h2>
+    <p>The copy button is part of the Sheet. Leave <code>&lt;ascii-tabs-copy&gt;</code> out and there is none; put content inside to replace the icon.</p>
+    <div class="pair">
+      <div class="demo"><h3>Without copy</h3><div class="live"><ascii-tabs>
+  <ascii-tabs-sheet></ascii-tabs-sheet>
+</ascii-tabs></div></div>
+      <div class="demo"><h3>With custom copy</h3><div class="live"><ascii-tabs>
+  <ascii-tabs-sheet>
+    <ascii-tabs-copy>Copy ASCII</ascii-tabs-copy>
+  </ascii-tabs-sheet>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Hint</h2>
+    <div class="pair">
+      <div class="demo"><h3>Without hint</h3><div class="live"><ascii-tabs>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs></div></div>
+      <div class="demo"><h3>With hint</h3><div class="live"><ascii-tabs>
+  <ascii-tabs-hint>Pick a string, then type a fret.</ascii-tabs-hint>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Add and delete</h2>
+    <p>Delete never asks for confirmation. With one Tab it clears it, and it is disabled while that Tab is empty.</p>
+    <div class="pair">
+      <div class="demo"><h3>One fixed Tab, no add or delete</h3><div class="live"><ascii-tabs>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs></div></div>
+      <div class="demo"><h3>With add and delete</h3><div class="live"><ascii-tabs>
+  <ascii-tabs-sheet>
+    <ascii-tabs-copy></ascii-tabs-copy>
+    <ascii-tabs-delete></ascii-tabs-delete>
+  </ascii-tabs-sheet>
+  <ascii-tabs-add>+ New tab</ascii-tabs-add>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Custom controls (imperative API)</h2>
+    <p>Skip the parts and wire your own controls to <code>copy(index)</code>, <code>addTab()</code> and <code>removeTab(index)</code>.</p>
+    <div class="demo">
+      <div class="live"><ascii-tabs id="custom" readonly>
+  <pre>
+1 -0---3-
 2 -------
-...
-  &lt;/pre&gt;
-  &lt;pre&gt;...&lt;/pre&gt;
-&lt;/ascii-tabs&gt;</pre>
-    <p>Import the <code>parse</code> and <code>format</code> functions from <code>ascii-tabs.js</code> to convert by hand.</p>
+3 -------
+4 -------
+5 -------
+6 -------</pre>
+</ascii-tabs></div>
+      <div class="live-controls">
+        <button onclick="document.getElementById('custom').copy(0)">Copy first tab</button>
+      </div>
+      <pre class="snippet">&lt;button onclick="document.querySelector('ascii-tabs').copy(0)"&gt;Copy first tab&lt;/button&gt;
+&lt;!-- also: addTab(), removeTab(index) --&gt;</pre>
+    </div>
+    <div class="demo" style="margin-top:24px">
+      <div class="live"><ascii-tabs id="api"><ascii-tabs-sheet></ascii-tabs-sheet></ascii-tabs></div>
+      <div class="live-controls">
+        <button onclick="document.getElementById('api').addTab()">addTab()</button>
+        <button onclick="document.getElementById('api').removeTab(0)">removeTab(0)</button>
+        <button onclick="document.getElementById('api').copy(0)">copy(0)</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>value and change</h2>
+    <p>Read and write <code>value</code>; every edit fires <code>change</code>. Listening and writing the value back gives the controlled pattern.</p>
+    <div class="pair">
+      <div class="demo"><div class="live"><ascii-tabs id="json-demo"></ascii-tabs></div></div>
+      <div class="demo"><h3>value</h3><pre class="snippet" id="json">[[]]</pre></div>
+    </div>
   </section>
 </main>
+<script>
+  // Show each demo's HTML underneath it, captured before the elements upgrade
+  document.querySelectorAll('.demo > .live').forEach(live => {
+    const html = live.innerHTML.replace(/^\n+/, '').trimEnd();
+    const pre = document.createElement('pre');
+    pre.className = 'snippet';
+    pre.textContent = html;
+    live.after(pre);
+  });
+</script>
 <script type="module">
-  const demo = document.getElementById('demo');
+  const demo = document.getElementById('json-demo');
   const json = document.getElementById('json');
   const show = () => { json.textContent = JSON.stringify(demo.value); };
   demo.addEventListener('change', show);
