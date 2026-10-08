@@ -25,6 +25,35 @@
     <h3>value</h3>
     <pre class="snippet" id="json">[[]]</pre>
   </section>
+
+  <section>
+    <h2>Initial content from ASCII</h2>
+    <ascii-tabs>
+      <pre>
+1 -----------------
+2 -----------------
+3 -2-----2---------
+4 -------------0---
+5 ---0---------0---
+6 -----------------</pre>
+      <pre>
+e|-0--3--|
+B|-1--0--|
+G|-0--0--|
+D|-2--0--|
+A|-3--2--|
+E|-----3-|</pre>
+    </ascii-tabs>
+    <pre class="snippet">&lt;ascii-tabs&gt;
+  &lt;pre&gt;
+1 -------
+2 -------
+...
+  &lt;/pre&gt;
+  &lt;pre&gt;...&lt;/pre&gt;
+&lt;/ascii-tabs&gt;</pre>
+    <p>Import the <code>parse</code> and <code>format</code> functions from <code>ascii-tabs.js</code> to convert by hand.</p>
+  </section>
 </main>
 <script type="module">
   const demo = document.getElementById('demo');
