@@ -136,4 +136,28 @@ Strings are labelled `1`–`6` by default, on screen and in copied text. `labels
 <ascii-tabs labels="notes"></ascii-tabs>   <!-- e|-3--5- -->
 ```
 
+## Themes
+
+The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) and paints only its Sheets, never the page background. Without `theme` it follows `prefers-color-scheme`; `theme="light"` or `theme="dark"` forces a palette. Every colour is a custom property you can override on the element or any ancestor:
+
+| Property | Light | Dark |
+|---|---|---|
+| `--ascii-tabs-paper` | `#fdfaf5` | `#1b1a18` |
+| `--ascii-tabs-sheet` | `#fff` | `#232220` |
+| `--ascii-tabs-ink` | `#1a1a1a` | `#f1ede4` |
+| `--ascii-tabs-dash` | `#b3ada1` | `#5f5b53` |
+| `--ascii-tabs-line` | `#e7e2d6` | `#36342f` |
+| `--ascii-tabs-hover` | `#f4efe4` | `#2c2a27` |
+| `--ascii-tabs-focus` | `#f6e4df` | `#3a2a1d` |
+| `--ascii-tabs-accent` | `#8b0000` | `#fb923c` |
+
+`--ascii-tabs-font` and `--ascii-tabs-font-size` set the typography.
+
+```html
+<ascii-tabs></ascii-tabs>                      <!-- auto -->
+<ascii-tabs theme="light"></ascii-tabs>
+<ascii-tabs theme="dark"></ascii-tabs>
+<ascii-tabs style="--ascii-tabs-accent: teal; --ascii-tabs-sheet: #f0fafa"></ascii-tabs>
+```
+
 MIT licensed.
