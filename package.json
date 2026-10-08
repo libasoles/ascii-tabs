@@ -5,7 +5,14 @@
   "type": "module",
   "description": "A zero-dependency web component to write and show guitar tabs as plain ASCII.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "a11y": "node scripts/a11y.mjs",
+    "lighthouse": "lhci autorun"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "axe-core": "^4.14.0",
+    "puppeteer": "^25.13.0"
+  }
 }

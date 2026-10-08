@@ -8,3 +8,4 @@ lab/
 
 .DS_Store
 node_modules/
+.lighthouseci/
