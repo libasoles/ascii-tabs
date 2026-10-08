@@ -147,7 +147,7 @@ The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) an
 | `--ascii-tabs-paper` | `#fdfaf5` | `#1b1a18` |
 | `--ascii-tabs-sheet` | `#fff` | `#232220` |
 | `--ascii-tabs-ink` | `#1a1a1a` | `#f1ede4` |
-| `--ascii-tabs-dash` | `#b3ada1` | `#5f5b53` |
+| `--ascii-tabs-dash` | `#6f6c66` | `#959189` |
 | `--ascii-tabs-line` | `#e7e2d6` | `#36342f` |
 | `--ascii-tabs-hover` | `#f4efe4` | `#2c2a27` |
 | `--ascii-tabs-focus` | `#f6e4df` | `#3a2a1d` |

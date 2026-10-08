@@ -16,6 +16,14 @@
   .demo ascii-tabs { font-size: 18px; }
   pre.snippet { padding: 12px; background: #f4efe4; border-radius: 6px; overflow-x: auto; font-size: 13px; }
   .live-controls button { margin: 8px 4px 0 0; padding: 6px 12px; font: inherit; cursor: pointer; }
+  :root { color-scheme: light dark; }
+  /* The element never paints the page, so the page follows the OS like the element does */
+  @media (prefers-color-scheme: dark) {
+    body { background: #1b1a18; color: #f1ede4; }
+    a { color: #fdba74; }
+    .demo h3 { color: #fb923c; }
+    pre.snippet { background: #2c2a27; }
+  }
 </style>
 </head>
 <body>
@@ -274,6 +282,8 @@ E|-----3-|</pre>
     pre.textContent = html;
     live.after(pre);
   });
+  // Snippets scroll sideways, so keyboard users need to be able to focus them
+  document.querySelectorAll('pre.snippet').forEach(pre => (pre.tabIndex = 0));
 </script>
 <script type="module">
   document.getElementById('messages-demo').messages = {
