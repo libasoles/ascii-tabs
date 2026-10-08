@@ -2,9 +2,27 @@
 
 A zero-dependency web component for writing and showing guitar tabs as plain ASCII text.
 
-**Demo:** https://libasoles.github.io/ascii-tabs/
+<a href="https://libasoles.github.io/ascii-tabs/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/example-dark.png">
+    <img alt="An ascii-tabs editor showing the opening of Ode to Joy on strings 1 and 2, with copy, delete and add buttons" src="docs/img/example-light.png" width="760">
+  </picture>
+</a>
 
-> Work in progress: see [docs/spec-v0.1.md](docs/spec-v0.1.md). `tablatura.html` is the original standalone editor this library grows from.
+That's one `<ascii-tabs>` element: click a string, type a fret, and copy the result as plain text:
+
+```
+1 -0--0--1--3--3--1--0--------------0--0-------
+2 ----------------------3--1--1--3--------3--3-
+3 ---------------------------------------------
+4 ---------------------------------------------
+5 ---------------------------------------------
+6 ---------------------------------------------
+```
+
+**▶ [Try the live demo](https://libasoles.github.io/ascii-tabs/)**: every feature, editable, in your browser.
+
+Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/adr). `tablatura.html` is the original standalone editor this library grew from.
 
 ## Usage
 
