@@ -127,4 +127,13 @@ Spacing is the number of dashes between two Columns' Frets: `spacing="N"` (1–6
 </ascii-tabs>
 ```
 
+## String labels
+
+Strings are labelled `1`–`6` by default, on screen and in copied text. `labels="notes"` names them in standard tuning (`e B G D A E`, String 1 to 6). Parsing accepts both styles whatever the attribute says.
+
+```html
+<ascii-tabs></ascii-tabs>                  <!-- 1 -3--5- -->
+<ascii-tabs labels="notes"></ascii-tabs>   <!-- e|-3--5- -->
+```
+
 MIT licensed.
