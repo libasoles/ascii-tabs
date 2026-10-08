@@ -377,6 +377,7 @@ function readPart(el) {
   const hasContent = [...el.childNodes].some(n => (n.nodeType === 3 ? n.textContent.trim() : n.nodeType === 1 && !isPart(n)));
   const part = { type, content: hasContent ? [...el.childNodes].map(n => n.cloneNode(true)) : null };
   if (type === 'storage') part.key = el.getAttribute('key');
+  if (type === 'delete') part.enabled = el.hasAttribute('enabled');
   if (type === 'sheet') part.tools = [...el.children].filter(isPart).map(readPart);
   return part;
 }
@@ -659,7 +660,10 @@ class AsciiTabs extends Base {
       const tools = this.#el('div', 'ascii-tabs-tools', sheet);
       for (const tool of this.#sheetTools) {
         if (tool.type === 'copy') this.#button('ascii-tabs-copy', this.#text.copy, ICON_COPY, tools, tool.content);
-        else if (tool.type === 'delete') this.#button('ascii-tabs-delete', this.#text.delete, ICON_TRASH, tools, tool.content);
+        else if (tool.type === 'delete') {
+          const button = this.#button('ascii-tabs-delete', this.#text.delete, ICON_TRASH, tools, tool.content);
+          button._forceEnabled = tool.enabled;
+        }
       }
       if (!tools.children.length) tools.remove();
       this.#tabEls.push(this.#el('div', 'ascii-tabs-tab', sheet));
@@ -737,8 +741,9 @@ class AsciiTabs extends Base {
       }
       el.innerHTML = html;
       const empty = lastUsed(tab) < 0;
-      const del = this.#sheetEls[t]?.querySelector('.ascii-tabs-delete');
-      if (del) del.disabled = this.#tabs.length === 1 && empty;
+      for (const del of this.#sheetEls[t]?.querySelectorAll('.ascii-tabs-delete') ?? []) {
+        del.disabled = this.#tabs.length === 1 && empty && !del._forceEnabled;
+      }
     });
     this.#placeInput();
   }

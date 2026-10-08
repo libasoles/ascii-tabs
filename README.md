@@ -174,6 +174,14 @@ tabs.addEventListener('delete', async event => {
 });
 ```
 
+When one empty Tab remains, the default button is disabled because there is no Tab for it to remove. Add `enabled` to the delete part when the host needs to handle that click—for example, to remove a surrounding songbook block. The default behavior still does nothing in that state; cancel the event to replace it.
+
+```html
+<ascii-tabs>
+  <ascii-tabs-sheet><ascii-tabs-delete enabled></ascii-tabs-delete></ascii-tabs-sheet>
+</ascii-tabs>
+```
+
 ### Custom controls
 
 Skip the parts and call the root's methods:

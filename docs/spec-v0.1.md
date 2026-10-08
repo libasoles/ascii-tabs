@@ -44,6 +44,7 @@ The starting code is the editor in `guitar-chords/src/site/tab-editor.js` (more 
 - More than one Tab: every Sheet has an enabled delete that removes its Tab.
 - Only one Tab: delete is shown. When the Tab has content it is enabled and clears the Tab (there is always at least one Tab). When the Tab is empty it is disabled.
 - Before the built-in action, the root dispatches a bubbling, cancelable `delete` event with `{ index }` in `detail`. Consumers complement the default by observing it, or replace it with `preventDefault()` and `removeTab(index)`.
+- `<ascii-tabs-delete enabled>` overrides the disabled state for an empty single Tab so a host can handle its `delete` event. It remains hidden in `readonly`.
 
 ## Root attributes
 
