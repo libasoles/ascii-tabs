@@ -96,3 +96,21 @@ test('parse(format(v)) keeps an empty Column between Frets', () => {
   const tab = [col([1, 3]), col(), col([1, 5]), col([2, 1])];
   assert.deepEqual(parse(format(tab)), tab);
 });
+
+test('format uses number labels by default', () => {
+  const lines = format([col([3, 3])]).split('\n');
+  assert.deepEqual(lines.map(l => l.slice(0, 2)), ['1 ', '2 ', '3 ', '4 ', '5 ', '6 ']);
+});
+
+test('format with labels "notes" uses note labels in standard tuning', () => {
+  const lines = format([col([1, 3], [6, 5])], { labels: 'notes' }).split('\n');
+  assert.deepEqual(lines.map(l => l.slice(0, 2)), ['e|', 'B|', 'G|', 'D|', 'A|', 'E|']);
+  assert.equal(lines[0], 'e|-3-');
+  assert.equal(lines[5], 'E|-5-');
+});
+
+test('parse keeps accepting both label styles whatever the format used', () => {
+  const tab = [col([1, 3]), col([6, 5])];
+  assert.deepEqual(parse(format(tab, { labels: 'notes' })), tab);
+  assert.deepEqual(parse(format(tab, { labels: 'numbers' })), tab);
+});

@@ -164,6 +164,31 @@ E|-----3-|</pre>
   </section>
 
   <section>
+    <h2>String labels</h2>
+    <p>Numbers by default; <code>labels="notes"</code> names the Strings in standard tuning, on screen and in copied text.</p>
+    <div class="pair">
+      <div class="demo"><h3>Numbers (default)</h3><div class="live"><ascii-tabs readonly>
+  <pre>
+1 -3--5--7-
+2 ----------
+3 ----------
+4 ----------
+5 ----------
+6 ----------</pre>
+</ascii-tabs></div></div>
+      <div class="demo"><h3>labels="notes"</h3><div class="live"><ascii-tabs readonly labels="notes">
+  <pre>
+1 -3--5--7-
+2 ----------
+3 ----------
+4 ----------
+5 ----------
+6 ----------</pre>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
     <h2>value and change</h2>
     <p>Read and write <code>value</code>; every edit fires <code>change</code>. Listening and writing the value back gives the controlled pattern.</p>
     <div class="pair">

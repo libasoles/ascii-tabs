@@ -10,6 +10,13 @@ const MIN_SPACING = 1;
 const MAX_SPACING = 6;
 const DEFAULT_CAPACITY = 48; // characters per Staff before the element is measured
 
+// String labels, String 1 to 6: numbers by default, notes in standard tuning
+const LABELS = {
+  numbers: ['1 ', '2 ', '3 ', '4 ', '5 ', '6 '],
+  notes: ['e|', 'B|', 'G|', 'D|', 'A|', 'E|'],
+};
+const labelStyle = value => (value === 'notes' ? 'notes' : 'numbers');
+
 const emptyColumn = () => Array(STRING_COUNT).fill(null);
 
 const clampSpacing = n => {
@@ -49,7 +56,7 @@ function layout(tab, spacing, capacity) {
 }
 
 // One Tab as plain ASCII, every Staff cut right after its last Column
-function format(tab, { spacing = DEFAULT_SPACING, width = Infinity } = {}) {
+function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', width = Infinity } = {}) {
   const columns = tab.slice(0, lastUsed(tab) + 1);
   if (!columns.length) return '';
   const lead = '-'.repeat(leadingDashes(spacing));
@@ -58,7 +65,7 @@ function format(tab, { spacing = DEFAULT_SPACING, width = Infinity } = {}) {
     .map(([start, end]) => {
       const lines = [];
       for (let s = 0; s < STRING_COUNT; s++) {
-        let line = `${s + 1} `;
+        let line = LABELS[labelStyle(labels)][s];
         for (let c = start; c < end; c++) {
           const digits = columnDigits(columns[c]);
           const fret = columns[c][s] === null ? '-' : String(columns[c][s]);
@@ -336,7 +343,15 @@ class AsciiTabs extends Base {
     }
   }
 
-  static observedAttributes = ['readonly', 'spacing'];
+  static observedAttributes = ['readonly', 'spacing', 'labels'];
+
+  get labels() {
+    return labelStyle(this.getAttribute('labels'));
+  }
+
+  set labels(value) {
+    this.setAttribute('labels', labelStyle(value));
+  }
 
   get spacing() {
     return this.#spacing;
@@ -356,6 +371,7 @@ class AsciiTabs extends Base {
 
   attributeChangedCallback(name) {
     if (name === 'spacing') return this.#applySpacing();
+    if (name === 'labels') return this.#render();
     if (!this.#initialized) return;
     this.#cur = null;
     this.#endTyping();
@@ -379,7 +395,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'readonly', 'spacing']) {
+    for (const name of ['value', 'readonly', 'spacing', 'labels']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -564,7 +580,7 @@ class AsciiTabs extends Base {
       for (const [start, end] of this.#fit(t)) {
         html += '<div class="ascii-tabs-staff">';
         for (let s = 0; s < STRING_COUNT; s++) {
-          html += `<span class="ascii-tabs-line"><span class="ascii-tabs-label">${s + 1} </span>`;
+          html += `<span class="ascii-tabs-line"><span class="ascii-tabs-label">${LABELS[this.labels][s]}</span>`;
           for (let c = start; c < end; c++) {
             const isCur = this.#cur && this.#cur.t === t && this.#cur.c === c && this.#cur.s === s;
             const fret = tab[c][s];
@@ -781,7 +797,7 @@ class AsciiTabs extends Base {
   async copy(index = 0) {
     const tab = this.#tabs[index];
     if (!tab) return;
-    await copyText(format(tab, { spacing: this.#spacing, width: this.#capacity + LABEL_WIDTH }));
+    await copyText(format(tab, { spacing: this.#spacing, labels: this.labels, width: this.#capacity + LABEL_WIDTH }));
     const button = this.#sheetEls[index]?.querySelector('.ascii-tabs-copy');
     if (!button) return;
     this.#flashCopied(button);
