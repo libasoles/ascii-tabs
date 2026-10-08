@@ -176,4 +176,16 @@ Built-in text is English. `lang="es"` switches every built-in string to Spanish.
 
 Keys: `hint`, `copy`, `copied`, `delete`, `add`, `fret`, `spacing`.
 
+## Storage
+
+Nothing is stored unless you add the storage part. `<ascii-tabs-storage key="…">` loads the Tabs from `localStorage` under that key on start and saves them on every change. Stored Tabs take precedence over `<pre>` content and an initial `value`; an empty or unreadable store falls back to them. Storage failures (private mode, quota) are ignored. Two instances with different keys don't interfere.
+
+```html
+<ascii-tabs>
+  <ascii-tabs-storage key="my-tabs"></ascii-tabs-storage>
+</ascii-tabs>
+```
+
+A root whose only part child is the storage part still gets the default composition. The stored format is Tabs → Columns → 6 cells, each `""` or the Fret as text (as in the original editor); reading also accepts numbers and a single Tab.
+
 MIT licensed.

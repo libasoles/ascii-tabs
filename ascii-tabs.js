@@ -297,6 +297,30 @@ function injectStyles() {
   document.head.prepend(style);
 }
 
+// What <ascii-tabs-storage> keeps in localStorage: Tabs → Columns → 6 cells, each '' or the Fret as text
+// (the shape the original editor stores). Reading is lenient: numbers and null work too, and so does
+// a single Tab (an array of Columns) instead of an array of Tabs.
+const serializeStored = tabs =>
+  JSON.stringify(tabs.map(tab => tab.map(column => column.map(v => (v === null ? '' : String(v))))));
+
+function readStored(json) {
+  let raw;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(raw)) return null;
+  // A Tab's entries are Columns (arrays); a Column's entries are cells. A cell at the top level means a single Tab
+  const singleTab = raw.some(entry => Array.isArray(entry) && entry.some(cell => !Array.isArray(cell)));
+  const tabs = (singleTab ? [raw] : raw).filter(Array.isArray).map(tab =>
+    tab.filter(Array.isArray).map(column => column.map(v => (typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : v))),
+  );
+  const normalized = normalizeValue(tabs);
+  const hasFrets = normalized?.some(tab => lastUsed(tab) >= 0);
+  return hasFrets ? normalized : null;
+}
+
 function normalizeValue(value) {
   if (!Array.isArray(value)) return null;
   const tabs = value.filter(Array.isArray).map(tab =>
@@ -332,6 +356,7 @@ function readPart(el) {
   const type = el.localName.slice(PART_PREFIX.length);
   const hasContent = [...el.childNodes].some(n => (n.nodeType === 3 ? n.textContent.trim() : n.nodeType === 1 && !isPart(n)));
   const part = { type, content: hasContent ? [...el.childNodes].map(n => n.cloneNode(true)) : null };
+  if (type === 'storage') part.key = el.getAttribute('key');
   if (type === 'sheet') part.tools = [...el.children].filter(isPart).map(readPart);
   return part;
 }
@@ -363,6 +388,7 @@ class AsciiTabs extends Base {
   #sheetTools = [];
 
   #valueSet = false;
+  #storageKey = null; // set by <ascii-tabs-storage key>, null means nothing is stored
   #messages = {};
   #declared = null; // parts the consumer wrote as children, null for the default composition
 
@@ -380,6 +406,7 @@ class AsciiTabs extends Base {
     if (this.#initialized) {
       this.#buildSheets();
       this.#render();
+      this.#save();
     }
   }
 
@@ -477,8 +504,15 @@ class AsciiTabs extends Base {
         const pres = [...this.querySelectorAll('pre')];
         if (pres.length) this.#tabs = pres.map(pre => parse(pre.textContent));
       }
-      const parts = [...this.children].filter(isPart);
-      if (parts.length) this.#declared = parts.map(readPart);
+      // Storage is data, not interface: a root with only that part still gets the default composition
+      const parts = [...this.children].filter(isPart).map(readPart);
+      const storage = parts.find(part => part.type === 'storage');
+      const interfaceParts = parts.filter(part => part.type !== 'storage');
+      if (interfaceParts.length) this.#declared = interfaceParts;
+      if (storage?.key) {
+        this.#storageKey = storage.key;
+        this.#load();
+      }
       injectStyles();
       this.#buildFrame();
       this.#buildSheets();
@@ -686,7 +720,23 @@ class AsciiTabs extends Base {
   // --- Editing --------------------------------------------------------------
 
   #emitChange() {
+    this.#save();
     this.dispatchEvent(new CustomEvent('change', { detail: { value: this.value }, bubbles: true }));
+  }
+
+  // Stored Tabs win over <pre> and `value`; an empty or unreadable store falls back to them
+  #load() {
+    try {
+      const tabs = readStored(localStorage.getItem(this.#storageKey));
+      if (tabs) this.#tabs = tabs;
+    } catch {}
+  }
+
+  #save() {
+    if (!this.#storageKey) return;
+    try {
+      localStorage.setItem(this.#storageKey, serializeStored(this.#tabs.map(tab => tab.slice(0, lastUsed(tab) + 1))));
+    } catch {}
   }
 
   #setFret(t, c, s, fret) {
