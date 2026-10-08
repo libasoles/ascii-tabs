@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ascii-tabs</title>
+<script type="module" src="./ascii-tabs.js"></script>
+<style>
+  body { margin: 0; background: #fdfaf5; color: #1a1a1a; font-family: system-ui, sans-serif; }
+  main { max-width: 1000px; margin: 40px auto; padding: 0 16px; }
+  h1 { margin-top: 0; }
+  section { margin: 40px 0; }
+  pre.snippet { padding: 12px; background: #f4efe4; border-radius: 6px; overflow-x: auto; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ascii-tabs</h1>
+  <p>A zero-dependency web component to write and show guitar tabs as plain ASCII.</p>
+
+  <section>
+    <h2>Editable tab</h2>
+    <ascii-tabs id="demo"></ascii-tabs>
+    <pre class="snippet">&lt;ascii-tabs&gt;&lt;/ascii-tabs&gt;</pre>
+    <h3>value</h3>
+    <pre class="snippet" id="json">[[]]</pre>
+  </section>
+</main>
+<script type="module">
+  const demo = document.getElementById('demo');
+  const json = document.getElementById('json');
+  const show = () => { json.textContent = JSON.stringify(demo.value); };
+  demo.addEventListener('change', show);
+  show();
+</script>
+</body>
+</html>

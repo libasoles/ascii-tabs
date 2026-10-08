@@ -1,0 +1,11 @@
+{
+  "name": "ascii-tabs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A zero-dependency web component to write and show guitar tabs as plain ASCII.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
