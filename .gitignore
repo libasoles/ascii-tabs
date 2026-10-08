@@ -2,10 +2,9 @@
 lab/
 
 # Local agent tooling
-.agents/
-.claude/
+.claude/*
+!.claude/skills/
 .hermes/
-skills-lock.json
 
 .DS_Store
 node_modules/
