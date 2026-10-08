@@ -945,8 +945,17 @@ class AsciiTabs extends Base {
     if (button.classList.contains('ascii-tabs-add')) return this.addTab();
     const t = +button.closest('.ascii-tabs-sheet').dataset.t;
     if (button.classList.contains('ascii-tabs-copy')) return this.copy(t);
-    if (button.classList.contains('ascii-tabs-delete')) return this.removeTab(t);
+    if (button.classList.contains('ascii-tabs-delete')) return this.#deleteFromButton(t);
   };
+
+  // Listeners can observe or replace the built-in delete action. Cancelling the
+  // event leaves the Tab untouched, so an asynchronous confirmation can call
+  // removeTab(event.detail.index) later if it succeeds.
+  #deleteFromButton(index) {
+    const event = new CustomEvent('delete', { detail: { index }, bubbles: true, cancelable: true });
+    if (!this.dispatchEvent(event)) return;
+    this.removeTab(index);
+  }
 
   // Copies Tab `index` as plain ASCII, like the copy button does
   async copy(index = 0) {

@@ -158,6 +158,22 @@ Features are turned on by composing parts, not by boolean attributes ([ADR 0001]
 
 Delete never asks for confirmation. With several Tabs it removes its Tab; with one Tab it clears it, and is disabled while that Tab is empty.
 
+The delete button emits a cancelable `delete` event on `<ascii-tabs>` before it acts. This gives consumers three choices: do nothing to keep the default, add a listener for an extra effect, or cancel the event and take over the action. `event.detail.index` is the Tab targeted by the button.
+
+```js
+// Keep the default and complement it (for example, analytics).
+tabs.addEventListener('delete', event => {
+  console.log('Deleting tab', event.detail.index);
+});
+
+// Override the default—for an asynchronous confirmation, cancel first and
+// invoke the public method only after confirmation succeeds.
+tabs.addEventListener('delete', async event => {
+  event.preventDefault();
+  if (await confirmDeletion()) tabs.removeTab(event.detail.index);
+});
+```
+
 ### Custom controls
 
 Skip the parts and call the root's methods:
