@@ -6,9 +6,16 @@ const STRING_COUNT = 6;
 const MAX_FRET = 24;
 const LABEL_WIDTH = 2; // "1 "
 const DEFAULT_SPACING = 2;
+const MIN_SPACING = 1;
+const MAX_SPACING = 6;
 const DEFAULT_CAPACITY = 48; // characters per Staff before the element is measured
 
 const emptyColumn = () => Array(STRING_COUNT).fill(null);
+
+const clampSpacing = n => {
+  const spacing = Math.round(Number(n));
+  return Number.isFinite(spacing) ? Math.min(MAX_SPACING, Math.max(MIN_SPACING, spacing)) : DEFAULT_SPACING;
+};
 
 const isFret = v => Number.isInteger(v) && v >= 0 && v <= MAX_FRET;
 
@@ -130,6 +137,7 @@ const MESSAGES = {
   delete: 'Delete tab',
   add: 'New tab',
   fret: 'Fret',
+  spacing: 'Spacing',
 };
 
 // Lucide icons, inlined
@@ -162,6 +170,8 @@ ascii-tabs {
   color: var(--ascii-tabs-ink);
 }
 ascii-tabs .ascii-tabs-hint { margin: 0 0 16px; font-size: .7em; color: var(--ascii-tabs-dash); }
+ascii-tabs .ascii-tabs-spacing { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; font-size: 14px; }
+ascii-tabs .ascii-tabs-spacing-input { accent-color: var(--ascii-tabs-accent); }
 ascii-tabs .ascii-tabs-sheet {
   position: relative;
   padding: 28px 24px;
@@ -326,7 +336,15 @@ class AsciiTabs extends Base {
     }
   }
 
-  static observedAttributes = ['readonly'];
+  static observedAttributes = ['readonly', 'spacing'];
+
+  get spacing() {
+    return this.#spacing;
+  }
+
+  set spacing(value) {
+    this.setAttribute('spacing', String(clampSpacing(value)));
+  }
 
   get readonly() {
     return this.hasAttribute('readonly');
@@ -336,12 +354,22 @@ class AsciiTabs extends Base {
     this.toggleAttribute('readonly', Boolean(on));
   }
 
-  attributeChangedCallback() {
+  attributeChangedCallback(name) {
+    if (name === 'spacing') return this.#applySpacing();
     if (!this.#initialized) return;
     this.#cur = null;
     this.#endTyping();
     this.#buildFrame();
     this.#buildSheets();
+  }
+
+  // `spacing` attribute (or property) to state: slider, Staff width and view follow
+  #applySpacing() {
+    this.#spacing = this.hasAttribute('spacing') ? clampSpacing(this.getAttribute('spacing')) : DEFAULT_SPACING;
+    if (!this.#initialized) return;
+    for (const slider of this.querySelectorAll('.ascii-tabs-spacing-input')) slider.value = this.#spacing;
+    this.#measure();
+    this.#render();
   }
 
   connectedCallback() {
@@ -351,7 +379,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'readonly']) {
+    for (const name of ['value', 'readonly', 'spacing']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -431,6 +459,18 @@ class AsciiTabs extends Base {
       } else if (part.type === 'sheet' && !this.#sheetsEl) {
         this.#sheetsEl = this.#el('div', 'ascii-tabs-sheets', this);
         this.#sheetTools = part.tools ?? [];
+      } else if (part.type === 'spacing') {
+        const label = this.#el('label', 'ascii-tabs-spacing', this);
+        const text = this.#el('span', 'ascii-tabs-spacing-label', label);
+        if (part.content) text.replaceChildren(...part.content.map(n => n.cloneNode(true)));
+        else text.textContent = MESSAGES.spacing;
+        const slider = this.#el('input', 'ascii-tabs-spacing-input', label);
+        slider.type = 'range';
+        slider.min = MIN_SPACING;
+        slider.max = MAX_SPACING;
+        slider.step = 1;
+        slider.value = this.#spacing;
+        slider.addEventListener('input', () => (this.spacing = slider.value));
       } else if (part.type === 'add') {
         const add = this.#button('ascii-tabs-add', MESSAGES.add, ICON_PLUS, this, part.content);
         add.addEventListener('pointerdown', e => e.preventDefault()); // stay focused through the click

@@ -112,4 +112,19 @@ Skip the parts and call the root's methods:
 
 `copy(index)`, `addTab()` and `removeTab(index)` behave like the built-in buttons, including the delete rules.
 
+## Spacing
+
+Spacing is the number of dashes between two Columns' Frets: `spacing="N"` (1–6, clamped, default 2), also available as the `spacing` property. Add the optional slider part to let people change it; it is not in the default composition and also works in `readonly`. Spacing changes the rendered Tab and the copied text, and a Column with a two-digit Fret is still one character wider on every String.
+
+```html
+<!-- Initial spacing, no slider -->
+<ascii-tabs spacing="3"></ascii-tabs>
+
+<!-- Slider from 1 to 6 (put text inside to replace its label) -->
+<ascii-tabs>
+  <ascii-tabs-spacing></ascii-tabs-spacing>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs>
+```
+
 MIT licensed.

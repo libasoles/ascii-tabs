@@ -137,6 +137,33 @@ E|-----3-|</pre>
   </section>
 
   <section>
+    <h2>Spacing</h2>
+    <p>Spacing is the number of dashes between two Columns' Frets (1–6, default 2). It changes both what is shown and what is copied. The slider is a part, so it is never there unless you add it, and it works in <code>readonly</code> too.</p>
+    <div class="pair">
+      <div class="demo"><h3>Default spacing, no slider</h3><div class="live"><ascii-tabs readonly>
+  <pre>
+1 -3--5--7-
+2 ----------
+3 ----------
+4 ----------
+5 ----------
+6 ----------</pre>
+</ascii-tabs></div></div>
+      <div class="demo"><h3>spacing="4" with slider</h3><div class="live"><ascii-tabs readonly spacing="4">
+  <ascii-tabs-spacing></ascii-tabs-spacing>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+  <pre>
+1 -3--5--7-
+2 ----------
+3 ----------
+4 ----------
+5 ----------
+6 ----------</pre>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
     <h2>value and change</h2>
     <p>Read and write <code>value</code>; every edit fires <code>change</code>. Listening and writing the value back gives the controlled pattern.</p>
     <div class="pair">
