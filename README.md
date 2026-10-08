@@ -160,4 +160,20 @@ The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) an
 <ascii-tabs style="--ascii-tabs-accent: teal; --ascii-tabs-sheet: #f0fafa"></ascii-tabs>
 ```
 
+## Text
+
+Built-in text is English. `lang="es"` switches every built-in string to Spanish. The `messages` property takes a partial object that is merged over the active language; content you put inside a part still wins over `messages`.
+
+```html
+<ascii-tabs></ascii-tabs>               <!-- "Click a string and type the fret number." -->
+<ascii-tabs lang="es"></ascii-tabs>     <!-- "Hacé clic en una cuerda y escribí el número de traste." -->
+
+<ascii-tabs id="tabs"></ascii-tabs>
+<script>
+  tabs.messages = { hint: 'Tap a string, then type a fret.', copy: 'Copy as ASCII' };
+</script>
+```
+
+Keys: `hint`, `copy`, `copied`, `delete`, `add`, `fret`, `spacing`.
+
 MIT licensed.
