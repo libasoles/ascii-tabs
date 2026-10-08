@@ -168,6 +168,32 @@ const STYLES = `
   --ascii-tabs-accent: #8b0000;
   --ascii-tabs-font: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --ascii-tabs-font-size: 22px;
+  color-scheme: light;
+}
+/* Dark palette, from the original editor. Default theme follows the OS; [theme] forces one. */
+@media (prefers-color-scheme: dark) {
+  :where(ascii-tabs:not([theme="light"])) {
+    --ascii-tabs-paper: #1b1a18;
+    --ascii-tabs-sheet: #232220;
+    --ascii-tabs-ink: #f1ede4;
+    --ascii-tabs-dash: #5f5b53;
+    --ascii-tabs-line: #36342f;
+    --ascii-tabs-hover: #2c2a27;
+    --ascii-tabs-focus: #3a2a1d;
+    --ascii-tabs-accent: #fb923c;
+    color-scheme: dark;
+  }
+}
+:where(ascii-tabs[theme="dark"]) {
+  --ascii-tabs-paper: #1b1a18;
+  --ascii-tabs-sheet: #232220;
+  --ascii-tabs-ink: #f1ede4;
+  --ascii-tabs-dash: #5f5b53;
+  --ascii-tabs-line: #36342f;
+  --ascii-tabs-hover: #2c2a27;
+  --ascii-tabs-focus: #3a2a1d;
+  --ascii-tabs-accent: #fb923c;
+  color-scheme: dark;
 }
 ascii-tabs {
   display: block;
@@ -345,6 +371,16 @@ class AsciiTabs extends Base {
 
   static observedAttributes = ['readonly', 'spacing', 'labels'];
 
+  get theme() {
+    const theme = this.getAttribute('theme');
+    return theme === 'light' || theme === 'dark' ? theme : null;
+  }
+
+  set theme(value) {
+    if (value === 'light' || value === 'dark') this.setAttribute('theme', value);
+    else this.removeAttribute('theme');
+  }
+
   get labels() {
     return labelStyle(this.getAttribute('labels'));
   }
@@ -395,7 +431,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'readonly', 'spacing', 'labels']) {
+    for (const name of ['value', 'readonly', 'spacing', 'labels', 'theme']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
