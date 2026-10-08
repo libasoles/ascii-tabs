@@ -220,7 +220,7 @@ ascii-tabs .ascii-tabs-spacing { display: flex; align-items: center; gap: 12px; 
 ascii-tabs .ascii-tabs-spacing-input { accent-color: var(--ascii-tabs-accent); }
 ascii-tabs .ascii-tabs-sheet {
   position: relative;
-  padding: 28px 24px;
+  padding: 26px 20px 20px;
   background: var(--ascii-tabs-sheet);
   border: 1px solid var(--ascii-tabs-line);
   border-radius: 8px;
@@ -252,7 +252,7 @@ ascii-tabs .ascii-tabs-add.ascii-tabs-labelled { width: auto; padding: 0 16px; b
 ascii-tabs .ascii-tabs-tab { white-space: pre; user-select: none; -webkit-user-select: none; }
 ascii-tabs .ascii-tabs-staff + .ascii-tabs-staff { margin-top: 1.4em; }
 ascii-tabs .ascii-tabs-line { display: block; height: 1.5em; line-height: 1.5em; }
-ascii-tabs .ascii-tabs-label { color: var(--ascii-tabs-dash); }
+ascii-tabs .ascii-tabs-label, ascii-tabs .ascii-tabs-fill { color: var(--ascii-tabs-dash); }
 ascii-tabs .ascii-tabs-cell {
   display: inline-block; height: 1.5em;
   color: var(--ascii-tabs-dash); cursor: pointer; border-radius: 3px;
@@ -664,8 +664,8 @@ class AsciiTabs extends Base {
     while (tab.length < need) tab.push(emptyColumn());
     tab.length = need;
     let staves = layout(tab, this.#spacing, this.#capacity);
-    if (this.readonly) return (this.#staves[t] = staves);
-    // Fill the last Staff with empty Columns so every slot can be clicked
+    // Fill the last Staff with empty Columns, so every Staff spans the Sheet and, when editable,
+    // every slot can be clicked. `value` and copy trim them.
     const [start] = staves[staves.length - 1];
     let used = 0;
     for (let c = start; c < tab.length; c++) used += columnWidth(tab[c], this.#spacing);
@@ -686,6 +686,10 @@ class AsciiTabs extends Base {
       const trail = '-'.repeat(this.#spacing - lead.length);
       let html = '';
       for (const [start, end] of this.#fit(t)) {
+        // Dashes after the last Column, so every Staff ends flush with the Sheet
+        let used = 0;
+        for (let c = start; c < end; c++) used += columnWidth(tab[c], this.#spacing);
+        const fill = used < this.#capacity ? `<span class="ascii-tabs-fill">${'-'.repeat(this.#capacity - used)}</span>` : '';
         html += '<div class="ascii-tabs-staff">';
         for (let s = 0; s < STRING_COUNT; s++) {
           html += `<span class="ascii-tabs-line"><span class="ascii-tabs-label">${LABELS[this.labels][s]}</span>`;
@@ -700,7 +704,7 @@ class AsciiTabs extends Base {
                 : `<span class="ascii-tabs-fret">${fret}</span>${'-'.repeat(digits - String(fret).length)}`;
             html += `<span class="${cls}" data-t="${t}" data-c="${c}" data-s="${s}">${lead}${body}${trail}</span>`;
           }
-          html += '</span>';
+          html += `${fill}</span>`;
         }
         html += '</div>';
       }

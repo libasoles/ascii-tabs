@@ -9,8 +9,8 @@ The starting code is the editor in `guitar-chords/src/site/tab-editor.js` (more 
 ## Distribution
 
 - One ES module, `ascii-tabs.js`, with no build step and no dependencies.
-- Published only on GitHub (no npm), at `libasoles/ascii-tabs`, MIT, tagged `v0.1.0`.
-- Usage: `<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.0/ascii-tabs.js">`.
+- Published only on GitHub (no npm), at `libasoles/ascii-tabs`, MIT, tagged `v0.1.0` (latest `v0.1.1`).
+- Usage: `<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.1/ascii-tabs.js">`.
 - Exports `parse` and `format` as pure functions.
 
 ## Composition (see ADR 0001)
@@ -35,7 +35,7 @@ The starting code is the editor in `guitar-chords/src/site/tab-editor.js` (more 
   - Editable: hint + sheet(copy, delete) + add.
   - Read-only: sheet(copy).
   - The spacing slider is never in the default composition.
-- **Read-only** (`readonly`): no editing; hint, delete and add hide themselves even when declared. Copy and the spacing slider still work.
+- **Read-only** (`readonly`): no editing; hint, delete and add hide themselves even when declared. Copy and the spacing slider still work. Staves still span the full Sheet width, as when editable.
 - **Imperative API on the root** (to wire up your own controls): `copy(index)`, `addTab()`, `removeTab(index)`, `spacing` (get/set), `value` (get/set).
 
 ### Delete
