@@ -6,28 +6,42 @@
 <title>ascii-tabs</title>
 <script type="module" src="./ascii-tabs.js"></script>
 <style>
-  body { margin: 0; background: #fdfaf5; color: #1a1a1a; font-family: system-ui, sans-serif; line-height: 1.5; }
-  main { max-width: 1100px; margin: 40px auto; padding: 0 16px; }
+  :root {
+    color-scheme: light dark;
+    --bg: #fdfaf5; --fg: #1a1a1a; --muted: #5c574e; --accent: #8b0000;
+    --code-bg: #f4efe4; --rule: #e7e2d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1a18; --fg: #f1ede4; --muted: #a8a294; --accent: #fb923c;
+      --code-bg: #232220; --rule: #36342f;
+    }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; line-height: 1.5; }
+  a { color: var(--accent); }
+  main { max-width: 760px; margin: 40px auto; padding: 0 16px; }
   h1 { margin-top: 0; }
   section { margin: 56px 0; }
-  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px; align-items: start; }
-  .demo h3 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: #8b0000; }
+  section > p { color: var(--muted); }
+  .variants { display: flex; flex-direction: column; gap: 32px; }
   .demo { min-width: 0; font-size: 14px; }
+  .demo + .demo { border-top: 1px solid var(--rule); padding-top: 24px; }
+  .demo h3 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
   .demo ascii-tabs { font-size: 18px; }
-  pre.snippet { padding: 12px; background: #f4efe4; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  pre.snippet { padding: 12px; background: var(--code-bg); border-radius: 6px; overflow-x: auto; font-size: 13px; }
   .live-controls button { margin: 8px 4px 0 0; padding: 6px 12px; font: inherit; cursor: pointer; }
 </style>
 </head>
 <body>
 <main>
   <h1>ascii-tabs</h1>
-  <p>A zero-dependency web component to write and show guitar tabs as plain ASCII. Every section shows a feature off and on, with its HTML underneath.
+  <p>A zero-dependency web component to write and show guitar tabs as plain ASCII. Every section shows a feature off and on, one variant after the other, each with its HTML underneath.
      See the <a href="docs/spec-v0.1.md">spec</a>, the <a href="GLOSSARY.md">glossary</a> and the <a href="docs/adr">ADRs</a>.</p>
 
   <section>
     <h2>Editable vs read-only</h2>
     <p>Bare <code>&lt;ascii-tabs&gt;</code> is editable. <code>readonly</code> shows only copy on each Sheet.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>Editable (default)</h3><div class="live"><ascii-tabs></ascii-tabs></div></div>
       <div class="demo"><h3>readonly</h3><div class="live"><ascii-tabs readonly>
   <pre>
@@ -65,7 +79,7 @@ E|-----3-|</pre>
   <section>
     <h2>Copy</h2>
     <p>The copy button is part of the Sheet. Leave <code>&lt;ascii-tabs-copy&gt;</code> out and there is none; put content inside to replace the icon.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>Without copy</h3><div class="live"><ascii-tabs>
   <ascii-tabs-sheet></ascii-tabs-sheet>
 </ascii-tabs></div></div>
@@ -79,7 +93,7 @@ E|-----3-|</pre>
 
   <section>
     <h2>Hint</h2>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>Without hint</h3><div class="live"><ascii-tabs>
   <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
 </ascii-tabs></div></div>
@@ -93,7 +107,7 @@ E|-----3-|</pre>
   <section>
     <h2>Add and delete</h2>
     <p>Delete never asks for confirmation. With one Tab it clears it, and it is disabled while that Tab is empty.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>One fixed Tab, no add or delete</h3><div class="live"><ascii-tabs>
   <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
 </ascii-tabs></div></div>
@@ -110,6 +124,7 @@ E|-----3-|</pre>
   <section>
     <h2>Custom controls (imperative API)</h2>
     <p>Skip the parts and wire your own controls to <code>copy(index)</code>, <code>addTab()</code> and <code>removeTab(index)</code>.</p>
+    <div class="variants">
     <div class="demo">
       <div class="live"><ascii-tabs id="custom" readonly>
   <pre>
@@ -126,7 +141,7 @@ E|-----3-|</pre>
       <pre class="snippet">&lt;button onclick="document.querySelector('ascii-tabs').copy(0)"&gt;Copy first tab&lt;/button&gt;
 &lt;!-- also: addTab(), removeTab(index) --&gt;</pre>
     </div>
-    <div class="demo" style="margin-top:24px">
+    <div class="demo">
       <div class="live"><ascii-tabs id="api"><ascii-tabs-sheet></ascii-tabs-sheet></ascii-tabs></div>
       <div class="live-controls">
         <button onclick="document.getElementById('api').addTab()">addTab()</button>
@@ -134,12 +149,13 @@ E|-----3-|</pre>
         <button onclick="document.getElementById('api').copy(0)">copy(0)</button>
       </div>
     </div>
+    </div>
   </section>
 
   <section>
     <h2>Spacing</h2>
     <p>Spacing is the number of dashes between two Columns' Frets (1–6, default 2). It changes both what is shown and what is copied. The slider is a part, so it is never there unless you add it, and it works in <code>readonly</code> too.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>Default spacing, no slider</h3><div class="live"><ascii-tabs readonly>
   <pre>
 1 -3--5--7-
@@ -166,7 +182,7 @@ E|-----3-|</pre>
   <section>
     <h2>String labels</h2>
     <p>Numbers by default; <code>labels="notes"</code> names the Strings in standard tuning, on screen and in copied text.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>Numbers (default)</h3><div class="live"><ascii-tabs readonly>
   <pre>
 1 -3--5--7-
@@ -191,7 +207,7 @@ E|-----3-|</pre>
   <section>
     <h2>Themes</h2>
     <p>Without <code>theme</code> it follows <code>prefers-color-scheme</code>. <code>theme="light"</code> or <code>"dark"</code> forces a palette. Any <code>--ascii-tabs-*</code> custom property overrides a colour. The element paints only its Sheets, never the page background.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>Auto (follows the OS)</h3><div class="live"><ascii-tabs readonly>
   <pre>
 1 -3--5--7-
@@ -234,7 +250,7 @@ E|-----3-|</pre>
   <section>
     <h2>Text: lang and messages</h2>
     <p>English by default. <code>lang="es"</code> switches every built-in string to Spanish. <code>messages</code> is a partial object merged over the active language (aria-labels, tooltips, "copied" feedback, the default Hint). Content inside a part still wins.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>English (default)</h3><div class="live"><ascii-tabs></ascii-tabs></div></div>
       <div class="demo"><h3>lang="es"</h3><div class="live"><ascii-tabs lang="es"></ascii-tabs></div></div>
       <div class="demo"><h3>Custom messages</h3><div class="live"><ascii-tabs id="messages-demo"></ascii-tabs></div>
@@ -248,7 +264,7 @@ E|-----3-|</pre>
   <section>
     <h2>Storage</h2>
     <p>Opt-in persistence. <code>&lt;ascii-tabs-storage key="…"&gt;</code> loads the Tabs from <code>localStorage</code> under that key on start and saves them on every change; stored content wins over <code>&lt;pre&gt;</code>. Without the part nothing is stored. Type something and reload this page.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><h3>Without storage</h3><div class="live"><ascii-tabs></ascii-tabs></div></div>
       <div class="demo"><h3>With storage</h3><div class="live"><ascii-tabs>
   <ascii-tabs-storage key="ascii-tabs-demo"></ascii-tabs-storage>
@@ -259,7 +275,7 @@ E|-----3-|</pre>
   <section>
     <h2>value and change</h2>
     <p>Read and write <code>value</code>; every edit fires <code>change</code>. Listening and writing the value back gives the controlled pattern.</p>
-    <div class="pair">
+    <div class="variants">
       <div class="demo"><div class="live"><ascii-tabs id="json-demo"></ascii-tabs></div></div>
       <div class="demo"><h3>value</h3><pre class="snippet" id="json">[[]]</pre></div>
     </div>
