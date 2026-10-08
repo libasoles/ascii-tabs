@@ -59,9 +59,19 @@
   </section>
 
   <section>
-    <h2>Initial content from ASCII</h2>
-    <p>A <code>&lt;pre&gt;</code> per Tab becomes its initial value. Number labels and note labels both work, with any number of dashes.</p>
-    <div class="demo"><div class="live"><ascii-tabs>
+    <h2>Initial value</h2>
+    <p>Prefer passing the content as data through the <code>value</code> property: an array of Tabs, each an array of Columns, each Column 6 entries from String 1 to String 6, a Fret (0–24) or <code>null</code>. It is the same shape <code>value</code> and <code>change</code> give back. If all you have is ASCII text, a <code>&lt;pre&gt;</code> per Tab works too; number labels and note labels both parse, with any number of dashes.</p>
+    <div class="variants">
+      <div class="demo"><h3>From data (preferred)</h3><div class="live"><ascii-tabs id="data-demo"></ascii-tabs></div>
+        <pre class="snippet">document.getElementById('data-demo').value = [
+  [ // one Tab: a Column per position, String 1 to 6
+    [null, null, 2, null, 0, null],
+    [null, null, null, 2, null, null],
+    [null, 3, null, null, null, null],
+    [null, null, 2, null, 0, null],
+  ],
+];</pre></div>
+      <div class="demo"><h3>From ASCII</h3><div class="live"><ascii-tabs>
   <pre>
 1 ---------
 2 ---------
@@ -77,6 +87,7 @@ D|-2--0--|
 A|-3--2--|
 E|-----3-|</pre>
 </ascii-tabs></div></div>
+    </div>
   </section>
 
   <section>
@@ -266,7 +277,7 @@ E|-----3-|</pre>
 
   <section>
     <h2>Storage</h2>
-    <p>Opt-in persistence. <code>&lt;ascii-tabs-storage key="…"&gt;</code> loads the Tabs from <code>localStorage</code> under that key on start and saves them on every change; stored content wins over <code>&lt;pre&gt;</code>. Without the part nothing is stored. Type something and reload this page.</p>
+    <p>Opt-in persistence. <code>&lt;ascii-tabs-storage key="…"&gt;</code> loads the Tabs from <code>localStorage</code> under that key on start and saves them on every change; stored content wins over an initial <code>value</code> and <code>&lt;pre&gt;</code>. Without the part nothing is stored. Type something and reload this page.</p>
     <div class="variants">
       <div class="demo"><h3>Without storage</h3><div class="live"><ascii-tabs></ascii-tabs></div></div>
       <div class="demo"><h3>With storage</h3><div class="live"><ascii-tabs>
@@ -301,6 +312,14 @@ E|-----3-|</pre>
   });
 </script>
 <script type="module">
+  document.getElementById('data-demo').value = [
+    [ // one Tab: a Column per position, String 1 to 6
+      [null, null, 2, null, 0, null],
+      [null, null, null, 2, null, null],
+      [null, 3, null, null, null, null],
+      [null, null, 2, null, 0, null],
+    ],
+  ];
   document.getElementById('messages-demo').messages = {
     hint: 'Tap a string, then type a fret.',
     copy: 'Copy as ASCII',
