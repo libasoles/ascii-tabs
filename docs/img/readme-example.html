@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- Source of the README screenshots (example-light.png, example-dark.png). Regenerate from the repo root with:
+     chrome --headless --hide-scrollbars --allow-file-access-from-files --virtual-time-budget=3000 \
+       --force-device-scale-factor=2 --window-size=760,350 \
+       --screenshot=docs/img/example-light.png "file://$PWD/docs/img/readme-example.html?theme=light"
+     (and the same with dark) -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script type="module" src="../../ascii-tabs.js"></script>
+<style>
+  body { margin: 0; padding: 20px 24px; font-family: system-ui, sans-serif; }
+  ascii-tabs { font-size: 18px; }
+</style>
+</head>
+<body>
+<ascii-tabs>
+  <pre>
+1 -0--0--1--3--3--1--0--------------0--0-------
+2 ----------------------3--1--1--3--------3--3-
+3 ---------------------------------------------
+4 ---------------------------------------------
+5 ---------------------------------------------
+6 ---------------------------------------------</pre>
+</ascii-tabs>
+<script>
+  const theme = new URLSearchParams(location.search).get('theme') || 'light';
+  document.querySelector('ascii-tabs').setAttribute('theme', theme);
+  document.body.style.background = theme === 'dark' ? '#0d1117' : '#ffffff';
+</script>
+</body>
+</html>
