@@ -27,7 +27,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@main/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.0/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -40,6 +40,15 @@ Read and write the content with `value` (`(number|null)[][][]`: Tabs → Columns
 const tabs = document.querySelector('ascii-tabs');
 tabs.addEventListener('change', e => console.log(e.detail.value));
 tabs.value = [[[null, null, 3, null, null, null], [0, null, null, null, null, null]]];
+```
+
+Setting `value` does not fire `change`. The component is uncontrolled by default; for the controlled pattern, keep the Tabs in your own state, update it on `change` and write `value` back when the state changes elsewhere:
+
+```js
+let state = [[]];
+tabs.value = state;
+tabs.addEventListener('change', e => { state = e.detail.value; save(state); });
+function load(next) { state = next; tabs.value = state; }
 ```
 
 ## ASCII in and out
@@ -68,7 +77,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from './ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.0/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
