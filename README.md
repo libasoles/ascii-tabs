@@ -27,7 +27,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.2/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.3/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -108,7 +108,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.2/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.3/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
@@ -214,12 +214,15 @@ The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) an
 | `--ascii-tabs-sheet` | `#fff` | `#232220` |
 | `--ascii-tabs-ink` | `#1a1a1a` | `#f1ede4` |
 | `--ascii-tabs-dash` | `#6f6c66` | `#959189` |
+| `--ascii-tabs-string` | `#b3ada1` | `#b3ada1` |
 | `--ascii-tabs-line` | `#e7e2d6` | `#36342f` |
 | `--ascii-tabs-hover` | `#f4efe4` | `#2c2a27` |
 | `--ascii-tabs-focus` | `#f6e4df` | `#3a2a1d` |
 | `--ascii-tabs-accent` | `#8b0000` | `#fb923c` |
 
 `--ascii-tabs-font` and `--ascii-tabs-font-size` set the typography.
+
+`--ascii-tabs-string` colours the visual guitar strings (the dashes). They are hidden from assistive technology because they are diagrammatic decoration; labels, Frets, hints, and controls continue to use the AA-contrast text colours.
 
 ```html
 <ascii-tabs></ascii-tabs>                      <!-- auto -->

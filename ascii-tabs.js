@@ -37,6 +37,8 @@ const lastUsed = tab => {
 const columnDigits = column => Math.max(1, ...column.map(v => (v === null ? 1 : String(v).length)));
 const columnWidth = (column, spacing) => spacing + columnDigits(column);
 const leadingDashes = spacing => Math.ceil(spacing / 2);
+const visualDashes = count =>
+  count ? `<span class="ascii-tabs-string" aria-hidden="true">${'-'.repeat(count)}</span>` : '';
 
 // Split Columns into Staves: [start, end) ranges that fit `capacity` characters
 function layout(tab, spacing, capacity) {
@@ -176,6 +178,8 @@ const STYLES = `
   --ascii-tabs-sheet: #fff;
   --ascii-tabs-ink: #1a1a1a;
   --ascii-tabs-dash: #6f6c66;
+  /* The ASCII dashes are the visual guitar strings, not text to be read aloud. */
+  --ascii-tabs-string: #b3ada1;
   --ascii-tabs-line: #e7e2d6;
   --ascii-tabs-hover: #f4efe4;
   --ascii-tabs-focus: #f6e4df;
@@ -191,6 +195,7 @@ const STYLES = `
     --ascii-tabs-sheet: #232220;
     --ascii-tabs-ink: #f1ede4;
     --ascii-tabs-dash: #959189;
+    --ascii-tabs-string: #b3ada1;
     --ascii-tabs-line: #36342f;
     --ascii-tabs-hover: #2c2a27;
     --ascii-tabs-focus: #3a2a1d;
@@ -203,6 +208,7 @@ const STYLES = `
   --ascii-tabs-sheet: #232220;
   --ascii-tabs-ink: #f1ede4;
   --ascii-tabs-dash: #959189;
+  --ascii-tabs-string: #b3ada1;
   --ascii-tabs-line: #36342f;
   --ascii-tabs-hover: #2c2a27;
   --ascii-tabs-focus: #3a2a1d;
@@ -231,10 +237,12 @@ ascii-tabs .ascii-tabs-sheet + .ascii-tabs-sheet { margin-top: 24px; }
    (tools="top"), never over a String. Negative margins tuck them into the Sheet's corner. */
 ascii-tabs .ascii-tabs-tools {
   order: 1; display: flex; flex-direction: column; gap: 2px;
-  align-self: flex-start; margin: -14px -14px 0 0;
+  align-self: flex-start; margin: 4px -14px 0 0;
 }
 ascii-tabs[tools="top"] .ascii-tabs-sheet { flex-direction: column; gap: 8px; }
-ascii-tabs[tools="top"] .ascii-tabs-tools { order: -1; flex-direction: row; align-self: flex-end; }
+ascii-tabs[tools="top"] .ascii-tabs-tools {
+  order: -1; flex-direction: row; align-self: flex-end; margin-top: -14px;
+}
 ascii-tabs .ascii-tabs-button {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 32px; height: 32px; padding: 0;
@@ -260,7 +268,8 @@ ascii-tabs .ascii-tabs-add.ascii-tabs-labelled { width: auto; padding: 0 16px; b
 ascii-tabs .ascii-tabs-tab { flex: 1; min-width: 0; white-space: pre; user-select: none; -webkit-user-select: none; }
 ascii-tabs .ascii-tabs-staff + .ascii-tabs-staff { margin-top: 1.4em; }
 ascii-tabs .ascii-tabs-line { display: block; height: 1.5em; line-height: 1.5em; }
-ascii-tabs .ascii-tabs-label, ascii-tabs .ascii-tabs-fill { color: var(--ascii-tabs-dash); }
+ascii-tabs .ascii-tabs-label { color: var(--ascii-tabs-dash); }
+ascii-tabs .ascii-tabs-string { color: var(--ascii-tabs-string); }
 ascii-tabs .ascii-tabs-cell {
   display: inline-block; height: 1.5em;
   color: var(--ascii-tabs-dash); cursor: pointer; border-radius: 3px;
@@ -707,7 +716,7 @@ class AsciiTabs extends Base {
         // Dashes after the last Column, so every Staff ends flush with the Sheet
         let used = 0;
         for (let c = start; c < end; c++) used += columnWidth(tab[c], this.#spacing);
-        const fill = used < this.#capacity ? `<span class="ascii-tabs-fill">${'-'.repeat(this.#capacity - used)}</span>` : '';
+        const fill = visualDashes(this.#capacity - used);
         html += '<div class="ascii-tabs-staff">';
         for (let s = 0; s < STRING_COUNT; s++) {
           html += `<span class="ascii-tabs-line"><span class="ascii-tabs-label">${LABELS[this.labels][s]}</span>`;
@@ -718,9 +727,9 @@ class AsciiTabs extends Base {
             const cls = `ascii-tabs-cell${isCur ? ' ascii-tabs-cur' : ''}${fret !== null ? ' ascii-tabs-has' : ''}`;
             const body =
               fret === null
-                ? `<span class="ascii-tabs-mid">-</span><span class="ascii-tabs-caret"> </span>${'-'.repeat(digits - 1)}`
-                : `<span class="ascii-tabs-fret">${fret}</span>${'-'.repeat(digits - String(fret).length)}`;
-            html += `<span class="${cls}" data-t="${t}" data-c="${c}" data-s="${s}">${lead}${body}${trail}</span>`;
+                ? `<span class="ascii-tabs-mid ascii-tabs-string" aria-hidden="true">-</span><span class="ascii-tabs-caret" aria-hidden="true"> </span>${visualDashes(digits - 1)}`
+                : `<span class="ascii-tabs-fret">${fret}</span>${visualDashes(digits - String(fret).length)}`;
+            html += `<span class="${cls}" data-t="${t}" data-c="${c}" data-s="${s}">${visualDashes(lead.length)}${body}${visualDashes(trail.length)}</span>`;
           }
           html += `${fill}</span>`;
         }

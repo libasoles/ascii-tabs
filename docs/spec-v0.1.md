@@ -9,8 +9,8 @@ The starting code is the editor in `guitar-chords/src/site/tab-editor.js` (more 
 ## Distribution
 
 - One ES module, `ascii-tabs.js`, with no build step and no dependencies.
-- Published only on GitHub (no npm), at `libasoles/ascii-tabs`, MIT, tagged `v0.1.0` (latest `v0.1.2`).
-- Usage: `<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.2/ascii-tabs.js">`.
+- Published only on GitHub (no npm), at `libasoles/ascii-tabs`, MIT, tagged `v0.1.0` (latest `v0.1.3`).
+- Usage: `<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.3/ascii-tabs.js">`.
 - Exports `parse` and `format` as pure functions.
 
 ## Composition (see ADR 0001)
@@ -73,10 +73,10 @@ The starting code is the editor in `guitar-chords/src/site/tab-editor.js` (more 
 ## Theming (see ADR 0002)
 
 - Light DOM with `.ascii-tabs-*` classes and `--ascii-tabs-*` custom properties.
-- Built-in `light` theme (from guitar-chords): paper `#fdfaf5`, sheet `#fff`, ink `#1a1a1a`, dash `#6f6c66`, hover `#f4efe4`, focus `#f6e4df`, accent `#8b0000`.
+- Built-in `light` theme (from guitar-chords): paper `#fdfaf5`, sheet `#fff`, ink `#1a1a1a`, text dash `#6f6c66`, guitar-string dash `#b3ada1`, hover `#f4efe4`, focus `#f6e4df`, accent `#8b0000`.
 - Built-in `dark` theme (from the original page): bg `#1b1a18`, paper `#232220`, ink `#f1ede4`, muted `#959189`, line `#36342f`, accent `#fb923c`, hover `#2c2a27`, focus `#3a2a1d`.
 - The component paints only its Sheets, never the page background.
-- Both built-in themes meet WCAG 2.2 AA contrast: 4.5:1 for every text colour (Frets, dashes, String labels, Hint) on paper, sheet, hover and focus. `npm run a11y` and `npm run lighthouse` check it in CI.
+- Both built-in themes meet WCAG 2.2 AA contrast for text (Frets, String labels, Hint, and controls) on paper, sheet, hover and focus. The light `#b3ada1` dashes depict the guitar strings and are `aria-hidden`, so they are decorative rather than text. `npm run a11y` and `npm run lighthouse` check it in CI.
 
 ## Text
 
