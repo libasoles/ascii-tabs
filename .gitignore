@@ -1,0 +1,11 @@
+# Local experiments
+lab/
+
+# Local agent tooling
+.agents/
+.claude/
+.hermes/
+skills-lock.json
+
+.DS_Store
+node_modules/

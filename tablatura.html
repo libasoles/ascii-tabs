@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablatura</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --paper: #ffffff;
+    --ink: #2b2b2b;
+    --muted: #b3ada1;
+    --line: #e7e2d6;
+    --accent: #c2410c;
+    --hover: #f4efe4;
+    --focus: #fde7d6;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1a18;
+      --paper: #232220;
+      --ink: #f1ede4;
+      --muted: #5f5b53;
+      --line: #36342f;
+      --accent: #fb923c;
+      --hover: #2c2a27;
+      --focus: #3a2a1d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1a18;
+    --paper: #232220;
+    --ink: #f1ede4;
+    --muted: #5f5b53;
+    --line: #36342f;
+    --accent: #fb923c;
+    --hover: #2c2a27;
+    --focus: #3a2a1d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 22px;
+  }
+  main {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 16px;
+  }
+  .sheet {
+    position: relative;
+    padding: 28px 24px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .sheet + .sheet { margin-top: 24px; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; }
+    main { margin: 16px auto; }
+    .sheet { padding: 40px 12px 16px; }
+  }
+
+  .tools {
+    position: absolute;
+    top: 6px; right: 6px;
+    display: flex; gap: 2px;
+  }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--hover); color: var(--accent); }
+  .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .icon-btn svg { width: 18px; height: 18px; }
+  .icon-btn.done { color: var(--accent); }
+
+  #add {
+    display: flex;
+    margin: 20px auto 0;
+    width: 44px; height: 44px;
+    border: 1px dashed var(--muted);
+    border-radius: 50%;
+  }
+  #add svg { width: 22px; height: 22px; }
+
+  .tab { white-space: pre; user-select: none; -webkit-user-select: none; }
+  .staff + .staff { margin-top: 1.4em; }
+  .line { display: block; height: 1.5em; line-height: 1.5em; }
+  .label { color: var(--muted); }
+
+  .cell {
+    display: inline-block;
+    height: 1.5em;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .cell.has { cursor: grab; touch-action: none; }
+  .cell .n { color: var(--ink); font-weight: 700; }
+  .cell:hover { background: var(--hover); color: var(--accent); }
+  .editing .cell.cur { background: var(--focus); color: var(--accent); }
+  .editing .cell.cur .n { color: var(--accent); }
+  /* Blinking caret that takes the place of the middle dash */
+  .caret { display: none; position: relative; }
+  .caret::before {
+    content: ''; position: absolute; left: 50%; top: .25em; bottom: .25em;
+    width: 2px; margin-left: -1px; background: var(--accent);
+    animation: blink 1s steps(1) infinite;
+  }
+  .editing .cell.cur .caret { display: inline; }
+  .editing .cell.cur .mid { display: none; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Dragging a number to another slot */
+  .dragging, .dragging .cell { cursor: grabbing; }
+  .dragging .cell.cur .caret { display: none; }
+  .dragging .cell.cur .mid { display: inline; }
+  .dragging .cell.src .n { opacity: .35; }
+  .cell.drop { background: var(--focus); color: var(--accent); outline: 1px dashed var(--accent); }
+
+  /* Captures typing (and opens the numeric keyboard on phones) while staying invisible */
+  #key {
+    position: absolute;
+    width: 1px; height: 1px;
+    opacity: 0; border: 0; padding: 0;
+    font-size: 16px;
+    pointer-events: none;
+  }
+  #probe { position: absolute; visibility: hidden; white-space: pre; }
+</style>
+</head>
+<body>
+<main>
+  <div id="sheets"></div>
+  <button id="add" class="icon-btn" type="button" title="Nueva tablatura" aria-label="Nueva tablatura">
+    <!-- Lucide: plus -->
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+  </button>
+</main>
+<input id="key" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Traste">
+<span id="probe">0000000000</span>
+
+<script>
+  const STRINGS = ['1', '2', '3', '4', '5', '6'];
+  const KEY = 'tablatura-v2';
+  const OLD_KEY = 'tablatura-v1';
+  const LABEL_W = 2; // "1 "
+  const CELL_W = 3;  // "---"
+  const MAX = 16;
+
+  // Lucide icons, inlined
+  const svg = paths => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  const ICON_COPY = svg('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>');
+  const ICON_CHECK = svg('<path d="M20 6 9 17l-5-5"/>');
+  const ICON_TRASH = svg('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>');
+
+  const $sheets = document.getElementById('sheets');
+  const $add = document.getElementById('add');
+  const $key = document.getElementById('key');
+  const $probe = document.getElementById('probe');
+
+  const emptyCol = () => STRINGS.map(() => '');
+
+  // Each tab is one continuous run of columns; staves are just visual wrapping
+  let tabs = [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(KEY));
+    if (Array.isArray(stored)) tabs = stored.filter(Array.isArray);
+    else {
+      const old = JSON.parse(localStorage.getItem(OLD_KEY));
+      if (Array.isArray(old)) tabs = [old];
+    }
+  } catch {}
+  if (!tabs.length) tabs = [[]];
+
+  let perStaff = 16;
+  let cur = null;    // { t, c, s } focused cell
+  let draft = null;  // text being typed in the focused cell, null if untouched
+  let drag = null;   // { t, c, s, x, y, moved } number being dragged
+
+  const lastUsed = cols => {
+    for (let i = cols.length - 1; i >= 0; i--) if (cols[i].some(v => v !== '')) return i;
+    return -1;
+  };
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(tabs.map(cols => cols.slice(0, lastUsed(cols) + 1)))); } catch {}
+  }
+
+  // Always leave room after the last note; a new staff appears when you write past the end
+  function fit(t) {
+    const cols = tabs[t];
+    const need = Math.max(lastUsed(cols) + 2, cur && cur.t === t ? cur.c + 1 : 0, 1);
+    const total = Math.ceil(need / perStaff) * perStaff;
+    while (cols.length < total) cols.push(emptyCol());
+    cols.length = total;
+  }
+
+  function measure() {
+    const el = $sheets.querySelector('.tab');
+    if (!el) return;
+    const chW = $probe.getBoundingClientRect().width / 10;
+    const chars = Math.floor(el.clientWidth / chW);
+    perStaff = Math.max(4, Math.floor((chars - LABEL_W) / CELL_W));
+  }
+
+  function cellHtml(v) {
+    if (v === '') return '-<span class="mid">-</span><span class="caret"> </span>-';
+    if (v.length === 1) return `-<span class="n">${v}</span>-`;
+    return `-<span class="n">${v}</span>`;
+  }
+
+  const cellText = v => v === '' ? '---' : v.length === 1 ? `-${v}-` : `-${v}`;
+
+  // Plain-text version, with every staff cut right after its last note
+  function tabText(cols) {
+    const last = lastUsed(cols);
+    if (last < 0) return '';
+    const staves = [];
+    for (let start = 0; start <= last; start += perStaff) {
+      const end = Math.min(start + perStaff, last + 1);
+      staves.push(STRINGS.map((name, s) => {
+        let line = name + ' ';
+        for (let c = start; c < end; c++) line += cellText(cols[c][s]);
+        return line;
+      }).join('\n'));
+    }
+    return staves.join('\n\n');
+  }
+
+  // Sheet frames (with their buttons) are only rebuilt when tabs are added or removed
+  function build() {
+    $sheets.innerHTML = tabs.map((_, t) => `
+      <section class="sheet" data-t="${t}">
+        <div class="tools">
+          <button class="icon-btn copy" type="button" title="Copiar" aria-label="Copiar tablatura">${ICON_COPY}</button>
+          ${tabs.length > 1 ? `<button class="icon-btn del" type="button" title="Eliminar" aria-label="Eliminar tablatura">${ICON_TRASH}</button>` : ''}
+        </div>
+        <div class="tab"></div>
+      </section>`).join('');
+  }
+
+  function render() {
+    $sheets.querySelectorAll('.tab').forEach((el, t) => {
+      fit(t);
+      const cols = tabs[t];
+      let html = '';
+      for (let start = 0; start < cols.length; start += perStaff) {
+        html += '<div class="staff">';
+        STRINGS.forEach((name, s) => {
+          html += `<span class="line"><span class="label">${name} </span>`;
+          for (let c = start; c < start + perStaff; c++) {
+            const isCur = cur && cur.t === t && cur.c === c && cur.s === s;
+            const v = isCur && draft !== null ? draft : cols[c][s];
+            const cls = 'cell' + (isCur ? ' cur' : '') + (v !== '' ? ' has' : '');
+            html += `<span class="${cls}" data-t="${t}" data-c="${c}" data-s="${s}">${cellHtml(v)}</span>`;
+          }
+          html += '</span>';
+        });
+        html += '</div>';
+      }
+      el.innerHTML = html;
+    });
+    placeKey();
+  }
+
+  // Keep the hidden input next to the focused cell so phones scroll to it
+  function placeKey() {
+    const el = cur && $sheets.querySelector('.cell.cur');
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    $key.style.left = (r.left + scrollX) + 'px';
+    $key.style.top = (r.top + scrollY) + 'px';
+  }
+
+  function commit() {
+    if (cur && draft !== null) {
+      tabs[cur.t][cur.c][cur.s] = draft;
+      save();
+    }
+    draft = null;
+  }
+
+  function goTo(t, c, s) {
+    commit();
+    cur = { t, c: Math.max(0, c), s };
+    render();
+    $sheets.querySelector('.cell.cur')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function moveH(d) {
+    goTo(cur.t, cur.c + d, cur.s);
+  }
+
+  // Up/down walks across strings and jumps between staves at the edges
+  function moveV(d) {
+    let { t, c, s } = cur;
+    s += d;
+    if (s < 0) {
+      if (c - perStaff < 0) return goTo(t, c, 0);
+      c -= perStaff; s = STRINGS.length - 1;
+    } else if (s >= STRINGS.length) {
+      c += perStaff; s = 0;
+    }
+    goTo(t, c, s);
+  }
+
+  const valid = t => /^(0|[1-9][0-9]?)$/.test(t) && Number(t) <= MAX;
+
+  function typeDigit(d) {
+    if (draft === null || draft === '') draft = d;
+    else if (valid(draft + d)) draft += d;
+    else return;
+    render();
+  }
+
+  $key.addEventListener('keydown', e => {
+    if (!cur) return;
+    if (/^[0-9]$/.test(e.key)) { e.preventDefault(); return typeDigit(e.key); }
+    switch (e.key) {
+      case 'Enter':
+      case 'Tab':
+        e.preventDefault(); return moveH(e.shiftKey ? -1 : 1);
+      case 'ArrowRight': e.preventDefault(); return moveH(1);
+      case 'ArrowLeft':  e.preventDefault(); return moveH(-1);
+      case 'ArrowUp':    e.preventDefault(); return moveV(-1);
+      case 'ArrowDown':  e.preventDefault(); return moveV(1);
+      case 'Backspace':
+        e.preventDefault();
+        draft = (draft ?? tabs[cur.t][cur.c][cur.s]).slice(0, -1);
+        return render();
+      case 'Delete':
+        e.preventDefault(); draft = ''; return render();
+      case 'Escape':
+        e.preventDefault(); draft = null; return render();
+    }
+  });
+
+  // Phone keyboards often skip keydown for digits; pick them up here
+  $key.addEventListener('input', () => {
+    for (const ch of $key.value) if (/[0-9]/.test(ch)) typeDigit(ch);
+    $key.value = '';
+  });
+
+  $key.addEventListener('focus', () => document.body.classList.add('editing'));
+  $key.addEventListener('blur', () => {
+    document.body.classList.remove('editing');
+    commit();
+    cur = null;
+    render();
+  });
+
+  const cellAt = (x, y) => document.elementFromPoint(x, y)?.closest('.cell');
+  const cellEl = ({ t, c, s }) => $sheets.querySelector(`.cell[data-t="${t}"][data-c="${c}"][data-s="${s}"]`);
+  const pos = el => ({ t: +el.dataset.t, c: +el.dataset.c, s: +el.dataset.s });
+
+  $sheets.addEventListener('pointerdown', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell || e.button !== 0) return;
+    e.preventDefault(); // keep focus on the hidden input
+    const p = pos(cell);
+    goTo(p.t, p.c, p.s);
+    $key.focus({ preventScroll: true });
+    if (tabs[p.t][p.c][p.s] !== '') drag = { ...p, x: e.clientX, y: e.clientY, moved: false };
+  });
+
+  addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (!drag.moved) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
+      drag.moved = true;
+      document.body.classList.add('dragging');
+      cellEl(drag)?.classList.add('src');
+    }
+    $sheets.querySelector('.cell.drop')?.classList.remove('drop');
+    const over = cellAt(e.clientX, e.clientY);
+    if (over && !over.classList.contains('src')) over.classList.add('drop');
+  });
+
+  function endDrag(e, cancelled) {
+    if (!drag) return;
+    const from = drag;
+    drag = null;
+    document.body.classList.remove('dragging');
+    if (!from.moved) return;
+    const over = !cancelled && cellAt(e.clientX, e.clientY);
+    if (!over) return render();
+    const to = pos(over);
+    if (to.t !== from.t || to.c !== from.c || to.s !== from.s) {
+      tabs[to.t][to.c][to.s] = tabs[from.t][from.c][from.s];
+      tabs[from.t][from.c][from.s] = '';
+      save();
+    }
+    goTo(to.t, to.c, to.s);
+  }
+  addEventListener('pointerup', e => endDrag(e, false));
+  addEventListener('pointercancel', e => endDrag(e, true));
+
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return; } catch {}
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+
+  $sheets.addEventListener('click', async e => {
+    const btn = e.target.closest('.icon-btn');
+    if (!btn) return;
+    const t = +btn.closest('.sheet').dataset.t;
+    if (btn.classList.contains('copy')) {
+      await copyText(tabText(tabs[t]));
+      btn.innerHTML = ICON_CHECK;
+      btn.classList.add('done');
+      clearTimeout(btn._timer);
+      btn._timer = setTimeout(() => { btn.innerHTML = ICON_COPY; btn.classList.remove('done'); }, 1200);
+    } else if (btn.classList.contains('del')) {
+      if (lastUsed(tabs[t]) >= 0 && !confirm('¿Eliminar esta tablatura?')) return;
+      tabs.splice(t, 1);
+      save();
+      build();
+      render();
+    }
+  });
+
+  $add.addEventListener('pointerdown', e => e.preventDefault()); // stay focused through the click
+  $add.addEventListener('click', () => {
+    commit();
+    tabs.push([]);
+    save();
+    build();
+    goTo(tabs.length - 1, 0, 0);
+    $key.focus({ preventScroll: true });
+  });
+
+  let resizeTimer;
+  addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const before = perStaff;
+      measure();
+      if (perStaff !== before) render();
+    }, 100);
+  });
+
+  build();
+  measure();
+  render();
+</script>
+</body>
+</html>
