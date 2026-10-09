@@ -177,6 +177,7 @@ const STYLES = `
 :where(ascii-tabs) {
   --ascii-tabs-paper: #fdfaf5;
   --ascii-tabs-sheet: #fff;
+  --ascii-tabs-flat-background: #fff;
   --ascii-tabs-ink: #1a1a1a;
   --ascii-tabs-dash: #6f6c66;
   /* The ASCII dashes are the visual guitar strings, not text to be read aloud. */
@@ -234,6 +235,7 @@ ascii-tabs .ascii-tabs-sheet {
 }
 /* A flat Sheet blends into the consumer's surface instead of looking like a card. */
 ascii-tabs[variant="flat"] .ascii-tabs-sheet {
+  gap: 20px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -275,6 +277,8 @@ ascii-tabs .ascii-tabs-button.ascii-tabs-labelled { padding: 0 8px; }
 ascii-tabs .ascii-tabs-add.ascii-tabs-labelled { width: auto; padding: 0 16px; border-radius: 22px; }
 
 ascii-tabs .ascii-tabs-tab { flex: 1; min-width: 0; white-space: pre; user-select: none; -webkit-user-select: none; }
+/* Flat Sheets retain a surface for the Staffs, without reintroducing a card around the Tab. */
+ascii-tabs[variant="flat"] .ascii-tabs-staff { background: var(--ascii-tabs-flat-background); }
 ascii-tabs .ascii-tabs-staff + .ascii-tabs-staff { margin-top: 1.4em; }
 ascii-tabs .ascii-tabs-line { display: block; height: 1.5em; line-height: 1.5em; }
 ascii-tabs .ascii-tabs-label { color: var(--ascii-tabs-dash); }

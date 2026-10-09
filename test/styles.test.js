@@ -54,3 +54,33 @@ test('the flat variant removes the Sheet card treatment', async () => {
     assert.deepEqual(styles, { paddingTop: '0px', borderTopWidth: '0px', backgroundColor: 'rgba(0, 0, 0, 0)' });
   });
 });
+
+test('flat Sheets keep the side tools clear of the Staffs', async () => {
+  await withPage(`
+    <ascii-tabs variant="flat" readonly></ascii-tabs>
+    <script type="module" src="/ascii-tabs.js"></script>
+  `, async page => {
+    await page.setViewport({ width: 1640, height: 400 });
+    await page.waitForSelector('ascii-tabs .ascii-tabs-sheet');
+    const geometry = await page.$eval('ascii-tabs .ascii-tabs-sheet', sheet => {
+      const tools = sheet.querySelector('.ascii-tabs-tools').getBoundingClientRect();
+      const staff = sheet.querySelector('.ascii-tabs-line').getBoundingClientRect();
+      return { clearance: tools.left - staff.right, tools: { left: tools.left, right: tools.right }, staff: { left: staff.left, right: staff.right } };
+    });
+    assert.ok(geometry.clearance >= 20, JSON.stringify(geometry));
+  });
+});
+
+test('a consumer can customize the flat Staff background', async () => {
+  await withPage(`
+    <style>ascii-tabs { --ascii-tabs-flat-background: rebeccapurple; }</style>
+    <ascii-tabs variant="flat"></ascii-tabs>
+    <script type="module" src="/ascii-tabs.js"></script>
+  `, async page => {
+    await page.waitForSelector('ascii-tabs .ascii-tabs-staff');
+    assert.equal(
+      await page.$eval('ascii-tabs .ascii-tabs-staff', el => getComputedStyle(el).backgroundColor),
+      'rgb(102, 51, 153)',
+    );
+  });
+});

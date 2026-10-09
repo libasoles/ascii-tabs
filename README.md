@@ -27,7 +27,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.5/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.6/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -108,7 +108,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.5/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.6/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
@@ -232,6 +232,10 @@ A Sheet's tools (copy, delete) stand in a column to the right of the Staves by d
 
 Sheets look like cards by default. `variant="flat"` removes their background, border, and padding so the Tab can blend into its surrounding layout. It is also available as the `variant` property.
 
+In the flat variant, each Staff still has a white background so the space between
+Strings remains clean. Override `--ascii-tabs-flat-background` to match a host
+surface.
+
 ```html
 <ascii-tabs variant="flat"></ascii-tabs>
 ```
@@ -244,6 +248,7 @@ The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) an
 |---|---|---|
 | `--ascii-tabs-paper` | `#fdfaf5` | `#1b1a18` |
 | `--ascii-tabs-sheet` | `#fff` | `#232220` |
+| `--ascii-tabs-flat-background` | `#fff` | `#fff` |
 | `--ascii-tabs-ink` | `#1a1a1a` | `#f1ede4` |
 | `--ascii-tabs-dash` | `#6f6c66` | `#959189` |
 | `--ascii-tabs-string` | `#b3ada1` | `#b3ada1` |
