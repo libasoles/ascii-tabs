@@ -17,6 +17,7 @@ const LABELS = {
 };
 const labelStyle = value => (value === 'notes' ? 'notes' : 'numbers');
 const toolsPosition = value => (value === 'top' ? 'top' : 'side');
+const sheetVariant = value => (value === 'flat' ? 'flat' : 'default');
 
 const emptyColumn = () => Array(STRING_COUNT).fill(null);
 
@@ -185,7 +186,6 @@ const STYLES = `
   --ascii-tabs-focus: #f6e4df;
   --ascii-tabs-accent: #8b0000;
   --ascii-tabs-font: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --ascii-tabs-font-size: 22px;
   color-scheme: light;
 }
 /* Dark palette, from the original editor. Default theme follows the OS; [theme] forces one. */
@@ -215,11 +215,11 @@ const STYLES = `
   --ascii-tabs-accent: #fb923c;
   color-scheme: dark;
 }
-ascii-tabs {
+:where(ascii-tabs) {
   display: block;
   position: relative;
   font-family: var(--ascii-tabs-font);
-  font-size: var(--ascii-tabs-font-size);
+  font-size: var(--ascii-tabs-font-size, 22px);
   color: var(--ascii-tabs-ink);
 }
 ascii-tabs .ascii-tabs-hint { margin: 0 0 16px; font-size: .7em; color: var(--ascii-tabs-dash); }
@@ -232,6 +232,13 @@ ascii-tabs .ascii-tabs-sheet {
   border: 1px solid var(--ascii-tabs-line);
   border-radius: 8px;
 }
+/* A flat Sheet blends into the consumer's surface instead of looking like a card. */
+ascii-tabs[variant="flat"] .ascii-tabs-sheet {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
 ascii-tabs .ascii-tabs-sheet + .ascii-tabs-sheet { margin-top: 24px; }
 /* Sheet tools sit in a column beside the Staves (tools="side", the default) or in a row above them
    (tools="top"), never over a String. Negative margins tuck them into the Sheet's corner. */
@@ -239,10 +246,12 @@ ascii-tabs .ascii-tabs-tools {
   order: 1; display: flex; flex-direction: column; gap: 2px;
   align-self: flex-start; margin: 4px -14px 0 0;
 }
+ascii-tabs[variant="flat"] .ascii-tabs-tools { margin-right: 0; }
 ascii-tabs[tools="top"] .ascii-tabs-sheet { flex-direction: column; gap: 8px; }
 ascii-tabs[tools="top"] .ascii-tabs-tools {
   order: -1; flex-direction: row; align-self: flex-end; margin-top: -14px;
 }
+ascii-tabs[variant="flat"][tools="top"] .ascii-tabs-tools { margin-top: 0; }
 ascii-tabs .ascii-tabs-button {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 32px; height: 32px; padding: 0;
@@ -482,6 +491,15 @@ class AsciiTabs extends Base {
     this.setAttribute('tools', toolsPosition(value));
   }
 
+  get variant() {
+    return sheetVariant(this.getAttribute('variant'));
+  }
+
+  set variant(value) {
+    if (sheetVariant(value) === 'flat') this.setAttribute('variant', 'flat');
+    else this.removeAttribute('variant');
+  }
+
   get spacing() {
     return this.#spacing;
   }
@@ -522,7 +540,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'readonly', 'spacing', 'labels', 'tools', 'theme', 'messages']) {
+    for (const name of ['value', 'readonly', 'spacing', 'labels', 'tools', 'variant', 'theme', 'messages']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];

@@ -27,7 +27,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.3/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.4/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -108,7 +108,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.3/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.4/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
@@ -228,6 +228,14 @@ A Sheet's tools (copy, delete) stand in a column to the right of the Staves by d
 <ascii-tabs tools="top"></ascii-tabs>  <!-- row above them -->
 ```
 
+## Sheet variant
+
+Sheets look like cards by default. `variant="flat"` removes their background, border, and padding so the Tab can blend into its surrounding layout. It is also available as the `variant` property.
+
+```html
+<ascii-tabs variant="flat"></ascii-tabs>
+```
+
 ## Themes
 
 The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) and paints only its Sheets, never the page background. Without `theme` it follows `prefers-color-scheme`; `theme="light"` or `theme="dark"` forces a palette. Every colour is a custom property you can override on the element or any ancestor:
@@ -244,7 +252,13 @@ The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) an
 | `--ascii-tabs-focus` | `#f6e4df` | `#3a2a1d` |
 | `--ascii-tabs-accent` | `#8b0000` | `#fb923c` |
 
-`--ascii-tabs-font` and `--ascii-tabs-font-size` set the typography.
+`--ascii-tabs-font` and `--ascii-tabs-font-size` set the typography. The font
+size defaults to `22px`, but its custom property is not set on the component,
+so it can be inherited from an ancestor:
+
+```css
+.compact-tabs { --ascii-tabs-font-size: 1em; }
+```
 
 `--ascii-tabs-string` colours the visual guitar strings (the dashes). They are hidden from assistive technology because they are diagrammatic decoration; labels, Frets, hints, and controls continue to use the AA-contrast text colours.
 
