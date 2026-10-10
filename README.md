@@ -27,12 +27,12 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.6/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.3.0/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
 
-A bare `<ascii-tabs>` is editable: a hint, one Sheet per Tab with copy and delete buttons, and an add button. Click a string and type the fret number (0–24); move with the arrow keys, Enter and Tab.
+A bare `<ascii-tabs>` is editable: a hint, one Sheet per Tab with copy and delete buttons, and an add button. Click a string and type the fret number (0–24); move with the arrow keys, Enter and Tab. Press Cmd+Right Arrow or Alt+Right Arrow to copy all six strings of the current column into the next column, replacing its contents, and move the cursor there. Press Cmd+0 or Alt+0 to fill only the empty cells of the current column with zeros, keeping existing frets and the cursor in place.
 
 ## Initial value
 
@@ -108,7 +108,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.1.6/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.3.0/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
