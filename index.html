@@ -23,6 +23,10 @@
   h1 { margin-top: 0; }
   section { margin: 56px 0; }
   section > p { color: var(--muted); }
+  .shortcuts { width: 100%; border-collapse: collapse; }
+  .shortcuts th, .shortcuts td { padding: 10px 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+  .shortcuts th:first-child { width: 38%; }
+  kbd { font-family: ui-monospace, monospace; font-size: .9em; }
   .variants { display: flex; flex-direction: column; gap: 32px; }
   .demo { min-width: 0; font-size: 14px; }
   .demo + .demo { border-top: 1px solid var(--rule); padding-top: 24px; }
@@ -64,6 +68,25 @@
 6 -----------------</pre>
 </ascii-tabs></div></div>
     </div>
+  </section>
+
+  <section>
+    <h2 id="keyboard-shortcuts">Keyboard shortcuts</h2>
+    <p>Click a String to place the cursor, then use these shortcuts in any editable Tab. Cmd is the Command key on macOS; Alt is also called Option.</p>
+    <table class="shortcuts" aria-labelledby="keyboard-shortcuts">
+      <thead><tr><th scope="col">Key</th><th scope="col">Action</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>0</kbd>–<kbd>9</kbd></td><td>Type a fret number from 0 to 24 in the current cell.</td></tr>
+        <tr><td><kbd>Left Arrow</kbd> / <kbd>Right Arrow</kbd></td><td>Move to the previous or next Column.</td></tr>
+        <tr><td><kbd>Up Arrow</kbd> / <kbd>Down Arrow</kbd></td><td>Move between Strings, crossing into the adjacent Staff at its edge.</td></tr>
+        <tr><td><kbd>Enter</kbd> / <kbd>Tab</kbd></td><td>Move to the next Column. Hold <kbd>Shift</kbd> to move to the previous Column.</td></tr>
+        <tr><td><kbd>Cmd</kbd> + <kbd>Right Arrow</kbd><br><kbd>Alt</kbd> + <kbd>Right Arrow</kbd></td><td>Copy all six Strings of the current Column into the next one, replacing its contents, and move the cursor there. Extends the Tab when needed.</td></tr>
+        <tr><td><kbd>Cmd</kbd> + <kbd>0</kbd><br><kbd>Alt</kbd> + <kbd>0</kbd></td><td>Fill only the empty cells of the current Column with zeros. Keep existing frets and the cursor in place.</td></tr>
+        <tr><td><kbd>Backspace</kbd></td><td>Remove the last digit from the current fret.</td></tr>
+        <tr><td><kbd>Delete</kbd></td><td>Clear the current cell.</td></tr>
+        <tr><td><kbd>Escape</kbd></td><td>Cancel the current typing and restore the cell's previous value.</td></tr>
+      </tbody>
+    </table>
   </section>
 
   <section>
