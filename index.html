@@ -72,7 +72,7 @@
 
   <section>
     <h2 id="keyboard-shortcuts">Keyboard shortcuts</h2>
-    <p>Click a String to place the cursor, then use these shortcuts in any editable Tab. Cmd is the Command key on macOS; Alt is also called Option.</p>
+    <p>Click a String to place the cursor, then use these shortcuts in any editable Tab. Drag from an empty cell or blank Sheet area to select notes, then drag any selected note to move the group. Cmd is the Command key on macOS; Alt is also called Option.</p>
     <table class="shortcuts" aria-labelledby="keyboard-shortcuts">
       <thead><tr><th scope="col">Key</th><th scope="col">Action</th></tr></thead>
       <tbody>
@@ -80,11 +80,13 @@
         <tr><td><kbd>Left Arrow</kbd> / <kbd>Right Arrow</kbd></td><td>Move to the previous or next Column.</td></tr>
         <tr><td><kbd>Up Arrow</kbd> / <kbd>Down Arrow</kbd></td><td>Move between Strings, crossing into the adjacent Staff at its edge.</td></tr>
         <tr><td><kbd>Enter</kbd> / <kbd>Tab</kbd></td><td>Move to the next Column. Hold <kbd>Shift</kbd> to move to the previous Column.</td></tr>
-        <tr><td><kbd>Cmd</kbd> + <kbd>Right Arrow</kbd><br><kbd>Alt</kbd> + <kbd>Right Arrow</kbd></td><td>Copy all six Strings of the current Column into the next one, replacing its contents, and move the cursor there. Extends the Tab when needed.</td></tr>
+        <tr><td><kbd>Cmd</kbd> + <kbd>Right Arrow</kbd><br><kbd>Alt</kbd> + <kbd>Right Arrow</kbd></td><td>Duplicate selected notes as a group after its last Column and select the duplicate. Without a selection, copy all six Strings of the current Column into the next one, replacing its contents. Extends the Tab when needed.</td></tr>
+        <tr><td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>C</kbd></td><td>Copy selected notes as ASCII. The Sheet's copy button also copies the selection.</td></tr>
+        <tr><td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>V</kbd></td><td>Paste ASCII at the current Column, keeping its String positions.</td></tr>
         <tr><td><kbd>Cmd</kbd> + <kbd>0</kbd><br><kbd>Alt</kbd> + <kbd>0</kbd></td><td>Fill only the empty cells of the current Column with zeros. Keep existing frets and the cursor in place.</td></tr>
-        <tr><td><kbd>Backspace</kbd></td><td>Remove the last digit from the current fret.</td></tr>
-        <tr><td><kbd>Delete</kbd></td><td>Clear the current cell.</td></tr>
-        <tr><td><kbd>Escape</kbd></td><td>Cancel the current typing and restore the cell's previous value.</td></tr>
+        <tr><td><kbd>Backspace</kbd></td><td>Remove selected notes, or remove the last digit from the current fret.</td></tr>
+        <tr><td><kbd>Delete</kbd></td><td>Remove selected notes, or clear the current cell.</td></tr>
+        <tr><td><kbd>Escape</kbd></td><td>Clear the selection, or cancel the current typing and restore the cell's previous value.</td></tr>
       </tbody>
     </table>
   </section>

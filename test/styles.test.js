@@ -6,6 +6,22 @@ import puppeteer from 'puppeteer';
 
 const root = new URL('../', import.meta.url);
 
+test('flat Staff backgrounds follow automatic and forced dark palettes', async () => {
+  await withPage(`
+    <ascii-tabs variant="flat"></ascii-tabs>
+    <ascii-tabs variant="flat" theme="dark"></ascii-tabs>
+    <ascii-tabs variant="flat" theme="light"></ascii-tabs>
+    <script type="module" src="/ascii-tabs.js"></script>
+  `, async page => {
+    await page.waitForSelector('.ascii-tabs-staff');
+    const backgrounds = () => page.$$eval('.ascii-tabs-staff', staffs => staffs.map(el => getComputedStyle(el).backgroundColor));
+    await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
+    assert.deepEqual(await backgrounds(), ['rgb(255, 255, 255)', 'rgb(35, 34, 32)', 'rgb(255, 255, 255)']);
+    await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
+    assert.deepEqual(await backgrounds(), ['rgb(35, 34, 32)', 'rgb(35, 34, 32)', 'rgb(255, 255, 255)']);
+  });
+});
+
 async function withPage(markup, run) {
   const source = await readFile(new URL('ascii-tabs.js', root));
   const server = createServer((request, response) => {

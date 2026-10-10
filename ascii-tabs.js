@@ -194,6 +194,7 @@ const STYLES = `
   :where(ascii-tabs:not([theme="light"])) {
     --ascii-tabs-paper: #1b1a18;
     --ascii-tabs-sheet: #232220;
+    --ascii-tabs-flat-background: #232220;
     --ascii-tabs-ink: #f1ede4;
     --ascii-tabs-dash: #959189;
     --ascii-tabs-string: #b3ada1;
@@ -207,6 +208,7 @@ const STYLES = `
 :where(ascii-tabs[theme="dark"]) {
   --ascii-tabs-paper: #1b1a18;
   --ascii-tabs-sheet: #232220;
+  --ascii-tabs-flat-background: #232220;
   --ascii-tabs-ink: #f1ede4;
   --ascii-tabs-dash: #959189;
   --ascii-tabs-string: #b3ada1;
@@ -307,6 +309,13 @@ ascii-tabs.ascii-tabs-dragging, ascii-tabs.ascii-tabs-dragging .ascii-tabs-cell 
 ascii-tabs.ascii-tabs-dragging .ascii-tabs-cur .ascii-tabs-caret { display: none; }
 ascii-tabs.ascii-tabs-dragging .ascii-tabs-cur .ascii-tabs-mid { display: inline; }
 ascii-tabs .ascii-tabs-src .ascii-tabs-fret { opacity: .35; }
+ascii-tabs .ascii-tabs-cell.ascii-tabs-selected {
+  background: var(--ascii-tabs-focus); outline: 1px solid var(--ascii-tabs-accent);
+}
+ascii-tabs .ascii-tabs-marquee {
+  position: fixed; pointer-events: none; z-index: 10;
+  border: 1px solid var(--ascii-tabs-accent); background: var(--ascii-tabs-focus);
+}
 ascii-tabs .ascii-tabs-cell.ascii-tabs-drop {
   background: var(--ascii-tabs-focus); color: var(--ascii-tabs-accent);
   outline: 1px dashed var(--ascii-tabs-accent);
@@ -412,6 +421,8 @@ class AsciiTabs extends Base {
   #draft = null; // text typed in the focused cell, null if untouched
   #draftOrigin = null; // value the focused cell had before typing, for Escape
   #drag = null; // { t, c, s, x, y, moved } Fret being dragged
+  #selection = []; // Selected note positions, all in one Tab
+  #marquee = null;
   #initialized = false;
   #resizeObserver = null;
   #input = null;
@@ -435,6 +446,7 @@ class AsciiTabs extends Base {
     if (!tabs) return;
     this.#valueSet = true;
     this.#tabs = tabs;
+    this.#selection = [];
     this.#cur = null;
     this.#draft = null;
     if (this.#initialized) {
@@ -464,6 +476,7 @@ class AsciiTabs extends Base {
   #rebuild() {
     if (!this.#initialized) return;
     this.#cur = null;
+    this.#selection = [];
     this.#endTyping();
     this.#buildFrame();
     this.#buildSheets();
@@ -659,6 +672,8 @@ class AsciiTabs extends Base {
     input.setAttribute('tabindex', '-1');
     input.addEventListener('keydown', this.#onKeyDown);
     input.addEventListener('input', this.#onInput);
+    input.addEventListener('copy', this.#onCopy);
+    input.addEventListener('paste', this.#onPaste);
     input.addEventListener('focus', () => this.classList.add('ascii-tabs-editing'));
     input.addEventListener('blur', () => {
       this.classList.remove('ascii-tabs-editing');
@@ -750,7 +765,8 @@ class AsciiTabs extends Base {
             const isCur = this.#cur && this.#cur.t === t && this.#cur.c === c && this.#cur.s === s;
             const fret = tab[c][s];
             const digits = columnDigits(tab[c]);
-            const cls = `ascii-tabs-cell${isCur ? ' ascii-tabs-cur' : ''}${fret !== null ? ' ascii-tabs-has' : ''}`;
+            const selected = this.#selection.some(p => p.t === t && p.c === c && p.s === s);
+            const cls = `ascii-tabs-cell${isCur ? ' ascii-tabs-cur' : ''}${fret !== null ? ' ascii-tabs-has' : ''}${selected ? ' ascii-tabs-selected' : ''}`;
             const body =
               fret === null
                 ? `<span class="ascii-tabs-mid ascii-tabs-string" aria-hidden="true">-</span><span class="ascii-tabs-caret" aria-hidden="true"> </span>${visualDashes(digits - 1)}`
@@ -815,7 +831,8 @@ class AsciiTabs extends Base {
     this.#draftOrigin = null;
   }
 
-  #goTo(t, c, s) {
+  #goTo(t, c, s, keepSelection = false) {
+    if (!keepSelection) this.#selection = [];
     this.#endTyping();
     this.#cur = { t, c: Math.max(0, c), s };
     this.#render();
@@ -827,6 +844,10 @@ class AsciiTabs extends Base {
   }
 
   #duplicateColumn() {
+    if (this.#selection.length) {
+      const columns = this.#selection.map(p => p.c);
+      return this.#transferSelection(this.#selection[0].t, Math.max(...columns) - Math.min(...columns) + 1, 0, true);
+    }
     const { t, c, s } = this.#cur;
     const column = [...(this.#tabs[t][c] ?? emptyColumn())];
     let changed = false;
@@ -870,6 +891,7 @@ class AsciiTabs extends Base {
 
   // Typing writes to the value straight away, so `change` follows every keystroke
   #edit(draft) {
+    this.#selection = [];
     const { t, c, s } = this.#cur;
     if (this.#draft === null) this.#draftOrigin = this.#tabs[t][c]?.[s] ?? null;
     this.#draft = draft;
@@ -885,7 +907,24 @@ class AsciiTabs extends Base {
   }
 
   #onKeyDown = e => {
-    if (!this.#cur) return;
+    if (!this.#cur || this.readonly) return;
+    if (this.#selection.length && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      return copyText(this.#selectionText());
+    }
+    if (this.#selection.length && (e.key === 'Delete' || e.key === 'Backspace')) {
+      e.preventDefault();
+      for (const { t, c, s } of this.#selection) this.#setFret(t, c, s, null);
+      this.#selection = [];
+      this.#endTyping();
+      this.#render();
+      return this.#emitChange();
+    }
+    if (this.#selection.length && e.key === 'Escape') {
+      e.preventDefault();
+      this.#selection = [];
+      return this.#render();
+    }
     if ((e.metaKey || e.altKey) && (e.key === '0' || e.code === 'Digit0')) {
       e.preventDefault();
       return this.#fillColumnWithZeros();
@@ -938,6 +977,57 @@ class AsciiTabs extends Base {
     this.#input.value = '';
   };
 
+  #selectionText() {
+    const first = Math.min(...this.#selection.map(p => p.c));
+    const last = Math.max(...this.#selection.map(p => p.c));
+    const columns = Array.from({ length: last - first + 1 }, emptyColumn);
+    for (const { t, c, s } of this.#selection) columns[c - first][s] = this.#tabs[t][c][s];
+    return format(columns, { spacing: this.#spacing, labels: this.labels });
+  }
+
+  #onCopy = e => {
+    if (!this.#selection.length) return;
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', this.#selectionText());
+  };
+
+  #onPaste = e => {
+    if (!this.#cur || this.readonly) return;
+    const columns = parse(e.clipboardData.getData('text/plain'));
+    if (lastUsed(columns) < 0) return;
+    e.preventDefault();
+    const { t, c } = this.#cur;
+    const selected = [];
+    let changed = false;
+    columns.forEach((column, offset) => column.forEach((fret, s) => {
+      if (fret === null) return;
+      if (this.#setFret(t, c + offset, s, fret)) changed = true;
+      selected.push({ t, c: c + offset, s });
+    }));
+    this.#selection = selected;
+    this.#endTyping();
+    this.#render();
+    if (changed) this.#emitChange();
+  };
+
+  // Snapshot before clearing: overlapping moves preserve every selected Fret.
+  #transferSelection(t, dc, ds, duplicate = false) {
+    const notes = this.#selection.map(p => ({ ...p, fret: this.#tabs[p.t][p.c][p.s] }));
+    if (notes.some(p => p.c + dc < 0 || p.s + ds < 0 || p.s + ds >= STRING_COUNT)) return false;
+    if (!duplicate && notes.every(p => p.t === t) && dc === 0 && ds === 0) return false;
+    let changed = false;
+    if (!duplicate) for (const p of notes) changed = this.#setFret(p.t, p.c, p.s, null) || changed;
+    this.#selection = notes.map(p => {
+      const to = { t, c: p.c + dc, s: p.s + ds };
+      changed = this.#setFret(to.t, to.c, to.s, p.fret) || changed;
+      return to;
+    });
+    const first = this.#selection[0];
+    this.#goTo(first.t, first.c, first.s, true);
+    if (changed) this.#emitChange();
+    return true;
+  }
+
   // --- Pointer --------------------------------------------------------------
 
   #cellAt = (x, y) => document.elementFromPoint(x, y)?.closest('.ascii-tabs-cell');
@@ -945,22 +1035,45 @@ class AsciiTabs extends Base {
 
   #onPointerDown = e => {
     const cell = e.target.closest('.ascii-tabs-cell');
-    if (!cell || e.button !== 0 || this.readonly) return;
+    const sheet = e.target.closest('.ascii-tabs-sheet');
+    if (!sheet || e.target.closest('.ascii-tabs-tools') || e.button !== 0 || this.readonly) return;
     e.preventDefault(); // keep focus on the hidden input
-    const p = this.#position(cell);
-    this.#goTo(p.t, p.c, p.s);
+    const p = cell && this.#position(cell);
+    const hasNote = p && this.#tabs[p.t][p.c][p.s] !== null;
+    const selected = p && this.#selection.some(n => n.t === p.t && n.c === p.c && n.s === p.s);
+    if (p) this.#goTo(p.t, p.c, p.s, Boolean(selected));
+    else { this.#selection = []; this.#endTyping(); this.#render(); }
     this.#input.focus({ preventScroll: true });
-    if (this.#tabs[p.t][p.c][p.s] !== null) this.#drag = { ...p, x: e.clientX, y: e.clientY, moved: false };
+    this.#drag = { ...p, t: +sheet.dataset.t, x: e.clientX, y: e.clientY, moved: false, selecting: !hasNote, pointerId: e.pointerId };
+    if (e.pointerType === 'mouse' || hasNote) this.setPointerCapture(e.pointerId);
   };
 
   #onPointerMove = e => {
     const drag = this.#drag;
-    if (!drag) return;
+    if (!drag || drag.pointerId !== e.pointerId) return;
     if (!drag.moved) {
       if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
       drag.moved = true;
-      this.classList.add('ascii-tabs-dragging');
-      this.querySelector(`.ascii-tabs-cell[data-t="${drag.t}"][data-c="${drag.c}"][data-s="${drag.s}"]`)?.classList.add('ascii-tabs-src');
+      if (drag.selecting) this.#marquee = this.#el('div', 'ascii-tabs-marquee', this);
+      else {
+        this.classList.add('ascii-tabs-dragging');
+        const sources = this.#selection.length ? this.querySelectorAll('.ascii-tabs-selected') : [this.querySelector('.ascii-tabs-cur')];
+        for (const source of sources) source?.classList.add('ascii-tabs-src');
+      }
+    }
+    if (drag.selecting) {
+      const left = Math.min(drag.x, e.clientX), top = Math.min(drag.y, e.clientY);
+      const right = Math.max(drag.x, e.clientX), bottom = Math.max(drag.y, e.clientY);
+      Object.assign(this.#marquee.style, { left: `${left}px`, top: `${top}px`, width: `${right - left}px`, height: `${bottom - top}px` });
+      this.#selection = [];
+      for (const cell of this.#tabEls[drag.t].querySelectorAll('.ascii-tabs-cell')) {
+        const fret = cell.querySelector('.ascii-tabs-fret');
+        const box = fret?.getBoundingClientRect();
+        const selected = Boolean(box && box.right >= left && box.left <= right && box.bottom >= top && box.top <= bottom);
+        cell.classList.toggle('ascii-tabs-selected', selected);
+        if (selected) this.#selection.push(this.#position(cell));
+      }
+      return;
     }
     this.querySelector('.ascii-tabs-drop')?.classList.remove('ascii-tabs-drop');
     const over = this.#cellAt(e.clientX, e.clientY);
@@ -969,13 +1082,27 @@ class AsciiTabs extends Base {
 
   #endDrag(e, cancelled) {
     const from = this.#drag;
-    if (!from) return;
+    if (!from || from.pointerId !== e.pointerId) return;
     this.#drag = null;
+    if (this.hasPointerCapture(e.pointerId)) this.releasePointerCapture(e.pointerId);
+    this.#marquee?.remove();
+    this.#marquee = null;
     this.classList.remove('ascii-tabs-dragging');
+    if (from.selecting) {
+      if (cancelled) this.#selection = [];
+      const first = this.#selection[0];
+      if (first) this.#goTo(first.t, first.c, first.s, true);
+      else this.#render();
+      return;
+    }
     if (!from.moved) return;
     const over = !cancelled && this.#cellAt(e.clientX, e.clientY);
     if (!over || !this.contains(over)) return this.#render();
     const to = this.#position(over);
+    if (this.#selection.length) {
+      this.#transferSelection(to.t, to.c - from.c, to.s - from.s);
+      return this.#render();
+    }
     if (to.t !== from.t || to.c !== from.c || to.s !== from.s) {
       const fret = this.#tabs[from.t][from.c][from.s];
       this.#setFret(to.t, to.c, to.s, fret);
@@ -1014,7 +1141,7 @@ class AsciiTabs extends Base {
   async copy(index = 0) {
     const tab = this.#tabs[index];
     if (!tab) return;
-    await copyText(format(tab, { spacing: this.#spacing, labels: this.labels, width: this.#capacity + LABEL_WIDTH }));
+    await copyText(this.#selection.length && this.#selection[0].t === index ? this.#selectionText() : format(tab, { spacing: this.#spacing, labels: this.labels, width: this.#capacity + LABEL_WIDTH }));
     const button = this.#sheetEls[index]?.querySelector('.ascii-tabs-copy');
     if (!button) return;
     this.#flashCopied(button);
@@ -1058,6 +1185,7 @@ class AsciiTabs extends Base {
     if (this.#tabs.length === 1 && lastUsed(this.#tabs[0]) < 0) return;
     this.#endTyping();
     this.#cur = null;
+    this.#selection = [];
     if (this.#tabs.length > 1) this.#tabs.splice(t, 1);
     else this.#tabs[0] = [];
     this.#buildSheets();
