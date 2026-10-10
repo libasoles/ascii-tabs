@@ -259,3 +259,76 @@ test('selection can start in Sheet padding, supports copy shortcuts and the butt
     assert.equal(await page.$$eval('.ascii-tabs-selected, .ascii-tabs-marquee', els => els.length), 0);
   });
 });
+
+
+for (const theme of ['light', 'dark']) {
+  test(`marquee is translucent below frets, with no cell highlights until release (${theme})`, async () => {
+    await withPage(selectionMarkup.replace('<ascii-tabs>', `<ascii-tabs theme="${theme}">`), async page => {
+      await seedSelection(page);
+      await page.keyboard.press('Escape');
+      const bounds = await page.$eval('ascii-tabs', el => {
+        const start = el.querySelector('.ascii-tabs-cell[data-c="0"][data-s="5"]').getBoundingClientRect();
+        const end = el.querySelector('.ascii-tabs-cell[data-c="2"][data-s="0"]').getBoundingClientRect();
+        return { x: start.left + 1, y: start.bottom - 1, toX: end.right - 1, toY: end.top + 1 };
+      });
+      await page.mouse.move(bounds.x, bounds.y);
+      await page.mouse.down();
+      await page.mouse.move(bounds.toX, bounds.toY, { steps: 10 });
+      assert.equal(await page.$$eval('.ascii-tabs-selected', cells => cells.length), 0);
+      const styles = await page.$eval('.ascii-tabs-marquee', el => {
+        const style = getComputedStyle(el);
+        const fret = getComputedStyle(document.querySelector('.ascii-tabs-fret'));
+        return { border: style.borderTopWidth, background: style.backgroundColor, z: +style.zIndex, fretZ: +fret.zIndex };
+      });
+      assert.equal(styles.border, '0px');
+      assert.match(styles.background, /(?:0\.1[0-9]*|15%)\)/);
+      assert.ok(styles.fretZ > styles.z);
+      assert.equal(await page.$eval('.ascii-tabs-cur', el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
+      await page.mouse.up();
+      assert.equal(await page.$$eval('.ascii-tabs-selected', cells => cells.length), 4);
+      assert.deepEqual(await page.$eval('.ascii-tabs-selected', el => {
+        const style = getComputedStyle(el);
+        return [style.outlineStyle, style.borderTopWidth, style.borderRadius];
+      }), ['none', '0px', '0px']);
+    });
+  });
+
+}
+
+test('drag preview preserves every selected fret and follows the pointer as a group', async () => {
+  await withPage(selectionMarkup, async page => {
+    await seedSelection(page);
+    const origin = await page.$eval('.ascii-tabs-cell[data-c="0"][data-s="0"]', el => {
+      const box = el.getBoundingClientRect();
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    });
+    const positions = () => page.$$eval('.ascii-tabs-drag-preview .ascii-tabs-fret', frets => frets.map(el => {
+      const box = el.getBoundingClientRect();
+      return { text: el.textContent, x: box.left, y: box.top };
+    }));
+    const sources = await page.$$eval('.ascii-tabs-selected .ascii-tabs-fret', frets => frets.map(el => {
+      const box = el.getBoundingClientRect();
+      return { text: el.textContent, x: box.left, y: box.top };
+    }));
+    await page.mouse.move(origin.x, origin.y);
+    await page.mouse.down();
+    await page.mouse.move(origin.x + 20, origin.y + 15);
+    const first = await positions();
+    assert.equal(first.length, 4);
+    first.forEach((fret, i) => {
+      assert.equal(fret.text, sources[i].text);
+      assert.ok(Math.abs(fret.x - sources[i].x - 20) < 1);
+      assert.ok(Math.abs(fret.y - sources[i].y - 15) < 1);
+    });
+    await page.mouse.move(origin.x + 45, origin.y + 35);
+    const second = await positions();
+    second.forEach((fret, i) => {
+      assert.ok(Math.abs(fret.x - first[i].x - 25) < 1);
+      assert.ok(Math.abs(fret.y - first[i].y - 20) < 1);
+    });
+    await page.evaluate(() => dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1 })));
+    await page.mouse.up();
+    assert.equal(await page.$$eval('.ascii-tabs-drag-preview, .ascii-tabs-src', els => els.length), 0);
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0].slice(0, 3)), selectedColumns);
+  });
+});

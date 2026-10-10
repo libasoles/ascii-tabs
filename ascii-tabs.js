@@ -177,7 +177,7 @@ const STYLES = `
 :where(ascii-tabs) {
   --ascii-tabs-paper: #fdfaf5;
   --ascii-tabs-sheet: #fff;
-  --ascii-tabs-flat-background: #fff;
+  --ascii-tabs-flat-background: transparent;
   --ascii-tabs-ink: #1a1a1a;
   --ascii-tabs-dash: #6f6c66;
   /* The ASCII dashes are the visual guitar strings, not text to be read aloud. */
@@ -194,7 +194,6 @@ const STYLES = `
   :where(ascii-tabs:not([theme="light"])) {
     --ascii-tabs-paper: #1b1a18;
     --ascii-tabs-sheet: #232220;
-    --ascii-tabs-flat-background: #232220;
     --ascii-tabs-ink: #f1ede4;
     --ascii-tabs-dash: #959189;
     --ascii-tabs-string: #b3ada1;
@@ -208,7 +207,6 @@ const STYLES = `
 :where(ascii-tabs[theme="dark"]) {
   --ascii-tabs-paper: #1b1a18;
   --ascii-tabs-sheet: #232220;
-  --ascii-tabs-flat-background: #232220;
   --ascii-tabs-ink: #f1ede4;
   --ascii-tabs-dash: #959189;
   --ascii-tabs-string: #b3ada1;
@@ -221,6 +219,7 @@ const STYLES = `
 :where(ascii-tabs) {
   display: block;
   position: relative;
+  isolation: isolate;
   font-family: var(--ascii-tabs-font);
   font-size: var(--ascii-tabs-font-size, 22px);
   color: var(--ascii-tabs-ink);
@@ -279,7 +278,7 @@ ascii-tabs .ascii-tabs-button.ascii-tabs-labelled { padding: 0 8px; }
 ascii-tabs .ascii-tabs-add.ascii-tabs-labelled { width: auto; padding: 0 16px; border-radius: 22px; }
 
 ascii-tabs .ascii-tabs-tab { flex: 1; min-width: 0; white-space: pre; user-select: none; -webkit-user-select: none; }
-/* Flat Sheets retain a surface for the Staffs, without reintroducing a card around the Tab. */
+/* Flat Staffs let the consumer's surface show through by default. */
 ascii-tabs[variant="flat"] .ascii-tabs-staff { background: var(--ascii-tabs-flat-background); }
 ascii-tabs .ascii-tabs-staff + .ascii-tabs-staff { margin-top: 1.4em; }
 ascii-tabs .ascii-tabs-line { display: block; height: 1.5em; line-height: 1.5em; }
@@ -290,7 +289,7 @@ ascii-tabs .ascii-tabs-cell {
   color: var(--ascii-tabs-dash); cursor: pointer; border-radius: 3px;
 }
 ascii-tabs .ascii-tabs-cell.ascii-tabs-has { cursor: grab; touch-action: none; }
-ascii-tabs .ascii-tabs-fret { color: var(--ascii-tabs-ink); font-weight: 700; }
+ascii-tabs .ascii-tabs-fret { position: relative; z-index: 2; color: var(--ascii-tabs-ink); font-weight: 700; }
 ascii-tabs .ascii-tabs-cell:hover { background: var(--ascii-tabs-hover); color: var(--ascii-tabs-accent); }
 ascii-tabs.ascii-tabs-editing .ascii-tabs-cell.ascii-tabs-cur { background: var(--ascii-tabs-focus); color: var(--ascii-tabs-accent); }
 ascii-tabs.ascii-tabs-editing .ascii-tabs-cell.ascii-tabs-cur .ascii-tabs-fret { color: var(--ascii-tabs-accent); }
@@ -310,11 +309,23 @@ ascii-tabs.ascii-tabs-dragging .ascii-tabs-cur .ascii-tabs-caret { display: none
 ascii-tabs.ascii-tabs-dragging .ascii-tabs-cur .ascii-tabs-mid { display: inline; }
 ascii-tabs .ascii-tabs-src .ascii-tabs-fret { opacity: .35; }
 ascii-tabs .ascii-tabs-cell.ascii-tabs-selected {
-  background: var(--ascii-tabs-focus); outline: 1px solid var(--ascii-tabs-accent);
+  background: var(--ascii-tabs-focus); outline: none; border-radius: 0;
 }
 ascii-tabs .ascii-tabs-marquee {
-  position: fixed; pointer-events: none; z-index: 10;
-  border: 1px solid var(--ascii-tabs-accent); background: var(--ascii-tabs-focus);
+  position: fixed; pointer-events: none; z-index: 1;
+  background: color-mix(in srgb, var(--ascii-tabs-accent) 15%, transparent);
+}
+ascii-tabs.ascii-tabs-selecting .ascii-tabs-cell,
+ascii-tabs.ascii-tabs-selecting .ascii-tabs-cell.ascii-tabs-cur {
+  background: transparent;
+}
+ascii-tabs.ascii-tabs-selecting .ascii-tabs-cur .ascii-tabs-caret { display: none; }
+ascii-tabs.ascii-tabs-selecting .ascii-tabs-cur .ascii-tabs-mid { display: inline; }
+ascii-tabs .ascii-tabs-drag-preview {
+  position: fixed; left: 0; top: 0; z-index: 3; pointer-events: none; opacity: .65;
+}
+ascii-tabs .ascii-tabs-drag-preview .ascii-tabs-fret {
+  position: absolute; white-space: pre;
 }
 ascii-tabs .ascii-tabs-cell.ascii-tabs-drop {
   background: var(--ascii-tabs-focus); color: var(--ascii-tabs-accent);
@@ -423,6 +434,7 @@ class AsciiTabs extends Base {
   #drag = null; // { t, c, s, x, y, moved } Fret being dragged
   #selection = []; // Selected note positions, all in one Tab
   #marquee = null;
+  #dragPreview = null;
   #initialized = false;
   #resizeObserver = null;
   #input = null;
@@ -765,7 +777,7 @@ class AsciiTabs extends Base {
             const isCur = this.#cur && this.#cur.t === t && this.#cur.c === c && this.#cur.s === s;
             const fret = tab[c][s];
             const digits = columnDigits(tab[c]);
-            const selected = this.#selection.some(p => p.t === t && p.c === c && p.s === s);
+            const selected = !this.#drag?.selecting && this.#selection.some(p => p.t === t && p.c === c && p.s === s);
             const cls = `ascii-tabs-cell${isCur ? ' ascii-tabs-cur' : ''}${fret !== null ? ' ascii-tabs-has' : ''}${selected ? ' ascii-tabs-selected' : ''}`;
             const body =
               fret === null
@@ -1054,11 +1066,24 @@ class AsciiTabs extends Base {
     if (!drag.moved) {
       if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
       drag.moved = true;
-      if (drag.selecting) this.#marquee = this.#el('div', 'ascii-tabs-marquee', this);
+      if (drag.selecting) {
+        this.classList.add('ascii-tabs-selecting');
+        this.#marquee = this.#el('div', 'ascii-tabs-marquee', this);
+      }
       else {
         this.classList.add('ascii-tabs-dragging');
+        this.#dragPreview = this.#el('div', 'ascii-tabs-drag-preview', this);
+        this.#dragPreview.setAttribute('aria-hidden', 'true');
         const sources = this.#selection.length ? this.querySelectorAll('.ascii-tabs-selected') : [this.querySelector('.ascii-tabs-cur')];
-        for (const source of sources) source?.classList.add('ascii-tabs-src');
+        for (const source of sources) {
+          const fret = source?.querySelector('.ascii-tabs-fret');
+          if (!fret) continue;
+          const box = fret.getBoundingClientRect();
+          const preview = fret.cloneNode(true);
+          Object.assign(preview.style, { left: `${box.left - drag.x}px`, top: `${box.top - drag.y}px` });
+          this.#dragPreview.append(preview);
+          source.classList.add('ascii-tabs-src');
+        }
       }
     }
     if (drag.selecting) {
@@ -1070,11 +1095,11 @@ class AsciiTabs extends Base {
         const fret = cell.querySelector('.ascii-tabs-fret');
         const box = fret?.getBoundingClientRect();
         const selected = Boolean(box && box.right >= left && box.left <= right && box.bottom >= top && box.top <= bottom);
-        cell.classList.toggle('ascii-tabs-selected', selected);
         if (selected) this.#selection.push(this.#position(cell));
       }
       return;
     }
+    this.#dragPreview.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
     this.querySelector('.ascii-tabs-drop')?.classList.remove('ascii-tabs-drop');
     const over = this.#cellAt(e.clientX, e.clientY);
     if (over && this.contains(over) && !over.classList.contains('ascii-tabs-src')) over.classList.add('ascii-tabs-drop');
@@ -1087,7 +1112,9 @@ class AsciiTabs extends Base {
     if (this.hasPointerCapture(e.pointerId)) this.releasePointerCapture(e.pointerId);
     this.#marquee?.remove();
     this.#marquee = null;
-    this.classList.remove('ascii-tabs-dragging');
+    this.#dragPreview?.remove();
+    this.#dragPreview = null;
+    this.classList.remove('ascii-tabs-dragging', 'ascii-tabs-selecting');
     if (from.selecting) {
       if (cancelled) this.#selection = [];
       const first = this.#selection[0];

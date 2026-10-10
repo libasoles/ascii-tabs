@@ -6,7 +6,7 @@ import puppeteer from 'puppeteer';
 
 const root = new URL('../', import.meta.url);
 
-test('flat Staff backgrounds follow automatic and forced dark palettes', async () => {
+test('flat Staff backgrounds stay transparent in automatic and forced themes', async () => {
   await withPage(`
     <ascii-tabs variant="flat"></ascii-tabs>
     <ascii-tabs variant="flat" theme="dark"></ascii-tabs>
@@ -16,9 +16,9 @@ test('flat Staff backgrounds follow automatic and forced dark palettes', async (
     await page.waitForSelector('.ascii-tabs-staff');
     const backgrounds = () => page.$$eval('.ascii-tabs-staff', staffs => staffs.map(el => getComputedStyle(el).backgroundColor));
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
-    assert.deepEqual(await backgrounds(), ['rgb(255, 255, 255)', 'rgb(35, 34, 32)', 'rgb(255, 255, 255)']);
+    assert.deepEqual(await backgrounds(), Array(3).fill('rgba(0, 0, 0, 0)'));
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
-    assert.deepEqual(await backgrounds(), ['rgb(35, 34, 32)', 'rgb(35, 34, 32)', 'rgb(255, 255, 255)']);
+    assert.deepEqual(await backgrounds(), Array(3).fill('rgba(0, 0, 0, 0)'));
   });
 });
 

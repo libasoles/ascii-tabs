@@ -234,9 +234,8 @@ A Sheet's tools (copy, delete) stand in a column to the right of the Staves by d
 
 Sheets look like cards by default. `variant="flat"` removes their background, border, and padding so the Tab can blend into its surrounding layout. It is also available as the `variant` property.
 
-In the flat variant, each Staff still has a white background so the space between
-Strings remains clean. Override `--ascii-tabs-flat-background` to match a host
-surface.
+In the flat variant, each Staff has a transparent background in both light and
+dark themes. Override `--ascii-tabs-flat-background` to give it a custom surface.
 
 ```html
 <ascii-tabs variant="flat"></ascii-tabs>
@@ -250,7 +249,7 @@ The element renders in the light DOM ([ADR 0002](docs/adr/0002-light-dom.md)) an
 |---|---|---|
 | `--ascii-tabs-paper` | `#fdfaf5` | `#1b1a18` |
 | `--ascii-tabs-sheet` | `#fff` | `#232220` |
-| `--ascii-tabs-flat-background` | `#fff` | `#fff` |
+| `--ascii-tabs-flat-background` | `transparent` | `transparent` |
 | `--ascii-tabs-ink` | `#1a1a1a` | `#f1ede4` |
 | `--ascii-tabs-dash` | `#6f6c66` | `#959189` |
 | `--ascii-tabs-string` | `#b3ada1` | `#b3ada1` |
