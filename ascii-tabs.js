@@ -4,31 +4,43 @@
 
 const STRING_COUNT = 6;
 const MAX_FRET = 24;
-const LABEL_WIDTH = 2; // "1 "
 const DEFAULT_SPACING = 2;
 const MIN_SPACING = 1;
 const MAX_SPACING = 6;
 const DEFAULT_CAPACITY = 48; // characters per Staff before the element is measured
 
-// String labels, String 1 to 6: numbers by default, notes in standard tuning
-const LABELS = {
-  numbers: ['1 ', '2 ', '3 ', '4 ', '5 ', '6 '],
-  notes: ['e|', 'B|', 'G|', 'D|', 'A|', 'E|'],
-  none: Array(STRING_COUNT).fill(''),
+const STANDARD_TUNING = ['E', 'B', 'G', 'D', 'A', 'E']; // String 1 to 6
+const NATURAL_PITCHES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const tuningPitch = name => {
+  if (typeof name !== 'string' || !/^[A-Ga-g][#b]?$/.test(name)) return null;
+  return (NATURAL_PITCHES[name[0].toUpperCase()] + (name[1] === '#' ? 1 : name[1] === 'b' ? -1 : 0) + 12) % 12;
+};
+// Invalid or incomplete tunings fall back to standard tuning as a whole.
+const normalizeTuning = value => {
+  const names = typeof value === 'string' ? value.trim().split(/\s+/) : value;
+  return Array.isArray(names) && names.length === STRING_COUNT && Array.from(names).every(name => tuningPitch(name) !== null)
+    ? names.map(name => NOTE_NAMES.letters[tuningPitch(name)])
+    : [...STANDARD_TUNING];
 };
 const labelStyle = value => (value === 'notes' || value === 'none' ? value : 'numbers');
-const labelWidth = labels => (labelStyle(labels) === 'none' ? 0 : LABEL_WIDTH);
+const stringLabels = (labels, tuning) => {
+  if (labelStyle(labels) === 'none') return Array(STRING_COUNT).fill('');
+  if (labelStyle(labels) === 'numbers') return ['1 ', '2 ', '3 ', '4 ', '5 ', '6 '];
+  const names = tuning.map((name, s) => `${s === 0 ? name.toLowerCase() : name}|`);
+  const width = Math.max(...names.map(name => name.length));
+  return names.map(name => name.padEnd(width, ' '));
+};
+const labelWidth = (labels, tuning) => stringLabels(labels, tuning)[0].length;
 const notationStyle = value => (value === 'letters' || value === 'solfege' ? value : 'frets');
-const OPEN_PITCHES = [4, 11, 7, 2, 9, 4]; // E B G D A E, pitch classes in standard tuning
 const NOTE_NAMES = {
   letters: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
   solfege: ['do', 'do#', 're', 're#', 'mi', 'fa', 'fa#', 'sol', 'sol#', 'la', 'la#', 'si'],
 };
 const fretValue = note => (note !== null && typeof note === 'object' ? note.fret : note);
 const cloneNote = note => (note !== null && typeof note === 'object' ? { ...note } : note);
-const fretText = (note, string, notation) => {
+const fretText = (note, string, notation, tuning) => {
   const fret = fretValue(note);
-  const text = fret === null ? '' : notationStyle(notation) === 'frets' ? String(fret) : NOTE_NAMES[notation][(OPEN_PITCHES[string] + fret) % 12];
+  const text = fret === null ? '' : notationStyle(notation) === 'frets' ? String(fret) : NOTE_NAMES[notation][(tuningPitch(tuning[string]) + fret) % 12];
   return note?.parenthesized ? `(${text})` : text || '-';
 };
 const toolsPosition = value => (value === 'top' ? 'top' : 'side');
@@ -50,19 +62,19 @@ const lastUsed = tab => {
 };
 
 // Size every String in a Column using its longest displayed Fret or note name.
-const columnDigits = (column, notation) => Math.max(1, ...column.map((v, s) => fretText(v, s, notation).length));
-const columnWidth = (column, spacing, notation) => spacing + columnDigits(column, notation);
+const columnDigits = (column, notation, tuning) => Math.max(1, ...column.map((v, s) => fretText(v, s, notation, tuning).length));
+const columnWidth = (column, spacing, notation, tuning) => spacing + columnDigits(column, notation, tuning);
 const leadingDashes = spacing => Math.ceil(spacing / 2);
 const visualDashes = count =>
   count ? `<span class="ascii-tabs-string" aria-hidden="true">${'-'.repeat(count)}</span>` : '';
 
 // Split Columns into Staves: [start, end) ranges that fit `capacity` characters
-function layout(tab, spacing, capacity, notation) {
+function layout(tab, spacing, capacity, notation, tuning) {
   const staves = [];
   let start = 0;
   let used = 0;
   for (let c = 0; c < tab.length; c++) {
-    const width = columnWidth(tab[c], spacing, notation);
+    const width = columnWidth(tab[c], spacing, notation, tuning);
     if (c > start && used + width > capacity) {
       staves.push([start, c]);
       start = c;
@@ -75,19 +87,21 @@ function layout(tab, spacing, capacity, notation) {
 }
 
 // One Tab as plain ASCII, every Staff cut right after its last Column
-function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', notation = 'frets', width = Infinity } = {}) {
+function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', notation = 'frets', tuning = STANDARD_TUNING, width = Infinity } = {}) {
+  tuning = normalizeTuning(tuning);
+  const names = stringLabels(labels, tuning);
   const columns = tab.slice(0, lastUsed(tab) + 1);
   if (!columns.length) return '';
   const lead = '-'.repeat(leadingDashes(spacing));
   const trail = '-'.repeat(spacing - lead.length);
-  return layout(columns, spacing, width - labelWidth(labels), notation)
+  return layout(columns, spacing, width - labelWidth(labels, tuning), notation, tuning)
     .map(([start, end]) => {
       const lines = [];
       for (let s = 0; s < STRING_COUNT; s++) {
-        let line = LABELS[labelStyle(labels)][s];
+        let line = names[s];
         for (let c = start; c < end; c++) {
-          const digits = columnDigits(columns[c], notation);
-          const fret = fretText(columns[c][s], s, notation);
+          const digits = columnDigits(columns[c], notation, tuning);
+          const fret = fretText(columns[c][s], s, notation, tuning);
           line += lead + fret.padEnd(digits, '-') + trail;
         }
         lines.push(line);
@@ -97,7 +111,7 @@ function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', notation =
     .join('\n\n');
 }
 
-const LABEL_PATTERN = /^\s*(?:[1-6][ \t]?|[eBGDAE])\|?/;
+const LABEL_PATTERN = /^\s*(?:[1-6][ \t]?\|?|[a-g][#b]?\|?[ \t]*)/i;
 
 // Plain ASCII to one Tab. Lenient: both String label styles, any number of dashes.
 // Columns are inferred from the horizontal position of each Fret. Malformed input yields an empty Tab.
@@ -573,7 +587,7 @@ class AsciiTabs extends Base {
     }
   }
 
-  static observedAttributes = ['readonly', 'spacing', 'labels', 'notation', 'lang', 'tools'];
+  static observedAttributes = ['readonly', 'spacing', 'labels', 'notation', 'tuning', 'lang', 'tools'];
 
   // Strings: the `lang` preset (English by default) with `messages` merged over it
   get #text() {
@@ -625,6 +639,14 @@ class AsciiTabs extends Base {
     this.setAttribute('notation', notationStyle(value));
   }
 
+  get tuning() {
+    return normalizeTuning(this.getAttribute('tuning'));
+  }
+
+  set tuning(value) {
+    this.setAttribute('tuning', normalizeTuning(value).join(' '));
+  }
+
   get tools() {
     return toolsPosition(this.getAttribute('tools'));
   }
@@ -660,7 +682,7 @@ class AsciiTabs extends Base {
 
   attributeChangedCallback(name) {
     if (name === 'spacing') return this.#applySpacing();
-    if (name === 'labels') {
+    if (name === 'labels' || name === 'tuning') {
       this.#measure();
       return this.#render();
     }
@@ -689,7 +711,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'columnLayout', 'readonly', 'spacing', 'labels', 'notation', 'tools', 'variant', 'theme', 'messages']) {
+    for (const name of ['value', 'columnLayout', 'readonly', 'spacing', 'labels', 'notation', 'tuning', 'tools', 'variant', 'theme', 'messages']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -867,7 +889,7 @@ class AsciiTabs extends Base {
     const charWidth = this.#probe.getBoundingClientRect().width / 10;
     if (!charWidth || !tabEl.clientWidth) return;
     const chars = Math.floor(tabEl.clientWidth / charWidth);
-    const capacity = Math.max(chars - labelWidth(this.labels), 4 * (this.#spacing + 1));
+    const capacity = Math.max(chars - labelWidth(this.labels, this.tuning), 4 * (this.#spacing + 1));
     if (capacity !== this.#capacity || force) {
       this.#capacity = capacity;
       this.#render();
@@ -881,17 +903,17 @@ class AsciiTabs extends Base {
     const need = Math.max(lastUsed(tab) + (this.readonly ? 1 : 2), this.#cur && this.#cur.t === t ? this.#cur.c + 1 : 0, 1);
     while (tab.length < need) tab.push(emptyColumn());
     tab.length = need;
-    let staves = layout(tab, this.#spacing, this.#capacity, this.notation);
+    let staves = layout(tab, this.#spacing, this.#capacity, this.notation, this.tuning);
     // Fill the last Staff with empty Columns, so every Staff spans the Sheet and, when editable,
     // every slot can be clicked. `value` and copy trim them.
     const [start] = staves[staves.length - 1];
     let used = 0;
-    for (let c = start; c < tab.length; c++) used += columnWidth(tab[c], this.#spacing, this.notation);
+    for (let c = start; c < tab.length; c++) used += columnWidth(tab[c], this.#spacing, this.notation, this.tuning);
     while (used + this.#spacing + 1 <= this.#capacity) {
       tab.push(emptyColumn());
       used += this.#spacing + 1;
     }
-    staves = layout(tab, this.#spacing, this.#capacity, this.notation);
+    staves = layout(tab, this.#spacing, this.#capacity, this.notation, this.tuning);
     this.#staves[t] = staves;
     return staves;
   }
@@ -908,18 +930,18 @@ class AsciiTabs extends Base {
       for (const [start, end] of this.#fit(t)) {
         // Dashes after the last Column, so every Staff ends flush with the Sheet
         let used = 0;
-        for (let c = start; c < end; c++) used += columnWidth(tab[c], this.#spacing, this.notation);
+        for (let c = start; c < end; c++) used += columnWidth(tab[c], this.#spacing, this.notation, this.tuning);
         const fill = geometry ? '' : visualDashes(this.#capacity - used);
         html += '<div class="ascii-tabs-staff">';
         for (let s = 0; s < STRING_COUNT; s++) {
           html += '<span class="ascii-tabs-line">';
-          if (this.labels !== 'none') html += `<span class="ascii-tabs-label">${LABELS[this.labels][s]}</span>`;
+          if (this.labels !== 'none') html += `<span class="ascii-tabs-label" style="flex-basis:${labelWidth(this.labels, this.tuning)}ch">${stringLabels(this.labels, this.tuning)[s]}</span>`;
           if (geometry) html += `<span class="ascii-tabs-area" data-t="${t}" data-s="${s}" style="width:${geometry.width}px">`;
           for (let c = start; c < end; c++) {
             const isCur = this.#cur && this.#cur.t === t && this.#cur.c === c && this.#cur.s === s;
             const fret = tab[c][s];
-            const digits = geometry ? fretText(tab[c][s], s, this.notation).length : columnDigits(tab[c], this.notation);
-            const text = fretText(fret, s, this.notation);
+            const digits = geometry ? fretText(tab[c][s], s, this.notation, this.tuning).length : columnDigits(tab[c], this.notation, this.tuning);
+            const text = fretText(fret, s, this.notation, this.tuning);
             const selected = !this.#drag?.selecting && this.#selection.some(p => p.t === t && p.c === c && p.s === s);
             const cls = `ascii-tabs-cell${isCur ? ' ascii-tabs-cur' : ''}${fret !== null ? ' ascii-tabs-has' : ''}${selected ? ' ascii-tabs-selected' : ''}`;
             const body =
@@ -1219,7 +1241,7 @@ class AsciiTabs extends Base {
     const last = Math.max(...this.#selection.map(p => p.c));
     const columns = Array.from({ length: last - first + 1 }, emptyColumn);
     for (const { t, c, s } of this.#selection) columns[c - first][s] = this.#tabs[t][c][s];
-    return format(columns, { spacing: this.#spacing, labels: this.labels, notation: this.notation });
+    return format(columns, { spacing: this.#spacing, labels: this.labels, notation: this.notation, tuning: this.tuning });
   }
 
   #onCopy = e => {
@@ -1408,7 +1430,7 @@ class AsciiTabs extends Base {
   async copy(index = 0) {
     const tab = this.#tabs[index];
     if (!tab) return;
-    await copyText(this.#selection.length && this.#selection[0].t === index ? this.#selectionText() : format(tab, { spacing: this.#spacing, labels: this.labels, notation: this.notation, width: this.#capacity + labelWidth(this.labels) }));
+    await copyText(this.#selection.length && this.#selection[0].t === index ? this.#selectionText() : format(tab, { spacing: this.#spacing, labels: this.labels, notation: this.notation, tuning: this.tuning, width: this.#capacity + labelWidth(this.labels, this.tuning) }));
     const button = this.#sheetEls[index]?.querySelector('.ascii-tabs-copy');
     if (!button) return;
     this.#flashCopied(button);

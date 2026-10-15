@@ -34,7 +34,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.5.0/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.6.0/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -210,7 +210,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.5.0/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.6.0/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
@@ -315,7 +315,7 @@ Spacing is the number of dashes between two Columns' Frets: `spacing="N"` (1–6
 ## Note notation
 
 `notation` changes the displayed and copied cell text: `frets` (default), `letters`
-(`C D E F G A B`), or `solfege` (lowercase `do re mi fa sol la si`). Notes use
+(`C D E F G A B`), or `solfege` (lowercase `do re mi fa sol la si`). Notes default to
 standard guitar tuning, String 1 to 6: E B G D A E. For example, Fret 0 on
 String 1 is `E` or `mi`, and Fret 3 is `G` or `sol`. Accidentals use sharps
 (`F#`, `fa#`); octaves share the same name.
@@ -345,9 +345,31 @@ the selected notation. Import and paste accept numeric tablature only: note name
 without octaves cannot identify the original Fret (for example, 0, 12 and 24).
 Switch to `frets` before copying when you need to paste the result back.
 
+## Tuning
+
+Set `tuning` to six open-string note names, in order from String 1 (highest)
+to String 6 (lowest). It affects displayed and copied note names and
+`labels="notes"`; Frets in `value` and storage stay unchanged.
+
+```html
+<!-- Drop D: lower only String 6 from E to D -->
+<ascii-tabs tuning="E B G D A D" notation="letters" labels="notes"></ascii-tabs>
+```
+
+```js
+tabs.tuning = ['E', 'B', 'G', 'D', 'A', 'D'];
+format(tab, { tuning: ['E', 'B', 'G', 'D', 'A', 'D'], notation: 'solfege' });
+```
+
+The property and `format` option accept an array or a space-separated string.
+The getter returns a fresh array. Names accept A–G (case insensitive), optionally
+followed by `#` or `b`, without octave numbers. Flats are normalized to sharps.
+Missing, invalid or incomplete tunings use standard tuning (`E B G D A E`).
+Changing or removing the attribute updates the view immediately.
+
 ## String labels
 
-Strings are labelled `1`–`6` by default, on screen and in copied text. `labels="notes"` names them in standard tuning (`e B G D A E`, String 1 to 6). `labels="none"` hides the labels and uses their space for Columns. This also applies to copied text. The `labels` property accepts `"numbers"`, `"notes"`, or `"none"`; other values fall back to numbers. Parsing accepts all three styles whatever the attribute says.
+Strings are labelled `1`–`6` by default, on screen and in copied text. `labels="notes"` names them using `tuning` (standard tuning by default: `e B G D A E`, String 1 to 6). `labels="none"` hides the labels and uses their space for Columns. This also applies to copied text. The `labels` property accepts `"numbers"`, `"notes"`, or `"none"`; other values fall back to numbers. Parsing accepts all three styles whatever the attribute says.
 
 ```html
 <ascii-tabs></ascii-tabs>                  <!-- 1 -3--5- -->

@@ -185,3 +185,28 @@ test('labels none omits prefixes, reclaims wrapping width and parses back', () =
   assert.deepEqual(parse(format(tab, { labels: 'none', spacing: 1 })), tab);
   assert.equal(format(tab, { labels: 'invalid' }), format(tab));
 });
+
+test('Drop D changes the sixth String in both note notations and labels', () => {
+  const tuning = ['E', 'B', 'G', 'D', 'A', 'D'];
+  const tab = [Array(6).fill(0), col([6, 2]), col([6, 12])];
+  assert.equal(format(tab, { tuning, notation: 'letters' }).split('\n')[5], '6 -D--E--D-');
+  assert.equal(format(tab, { tuning: tuning.join(' '), notation: 'solfege' }).split('\n')[5], '6 -re---mi--re-');
+  assert.deepEqual(parse(format(tab, { tuning, labels: 'notes' })), tab);
+  assert.match(format(tab, { tuning, labels: 'notes' }).split('\n')[5], /^D\|/);
+});
+
+test('custom tunings accept accidentals and keep labels, wrapping and parsing aligned', () => {
+  const tuning = ['Eb', 'B', 'Gb', 'D', 'Ab', 'E'];
+  const tab = [Array(6).fill(0), Array(6).fill(1), Array(6).fill(12)];
+  const ascii = format(tab, { tuning, labels: 'notes', width: 10 });
+  assert.deepEqual(parse(ascii), tab);
+  for (const line of ascii.split('\n').filter(Boolean)) assert.ok(line.length <= 10);
+  assert.equal(format(tab, { tuning, notation: 'letters' }).split('\n')[0], '1 -D#--E---D#-');
+});
+
+test('invalid or incomplete tuning falls back to standard tuning', () => {
+  const tab = [Array(6).fill(0)];
+  for (const tuning of [null, '', 'E B G D A', 'E B G D A H', [4, 11, 7, 2, 9, 2], Array(6)]) {
+    assert.equal(format(tab, { tuning, notation: 'letters', labels: 'notes' }), format(tab, { notation: 'letters', labels: 'notes' }));
+  }
+});

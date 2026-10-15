@@ -521,3 +521,28 @@ test('labels none updates layout and copy through attributes and properties', as
     assert.equal(await page.$eval('.ascii-tabs-label', el => el.textContent), '1 ');
   });
 });
+
+test('tuning updates rendered notes, labels and copy without changing Frets', async () => {
+  await withPage('<ascii-tabs tuning="E B G D A D" notation="letters" labels="notes"></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => {
+      el.value = [[[0, 0, 0, 0, 0, 0]]];
+      window.changes = 0;
+      el.addEventListener('change', () => window.changes++);
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+        writeText: async text => { window.copiedText = text; },
+      } });
+    });
+    const sixth = '.ascii-tabs-cell[data-c="0"][data-s="5"] .ascii-tabs-fret';
+    assert.equal(await page.$eval(sixth, el => el.textContent), 'D');
+    await page.$eval('ascii-tabs', el => el.copy());
+    assert.match(await page.evaluate(() => window.copiedText.split('\n')[5]), /^D\|-D-/);
+    await page.$eval('ascii-tabs', el => { el.tuning = ['E', 'B', 'G', 'D', 'A', 'C#']; el.notation = 'solfege'; });
+    assert.equal(await page.$eval(sixth, el => el.textContent), 'do#');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.tuning), ['E', 'B', 'G', 'D', 'A', 'C#']);
+    await page.$eval('ascii-tabs', el => { el.removeAttribute('tuning'); });
+    assert.equal(await page.$eval(sixth, el => el.textContent), 'mi');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value), [[[0, 0, 0, 0, 0, 0]]]);
+    assert.equal(await page.evaluate(() => window.changes), 0);
+  });
+});
