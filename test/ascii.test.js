@@ -175,3 +175,13 @@ test('format exports colored notes as plain frets with matching widths and notat
     assert.equal(format(colored, { notation, width: 8 }), format(plain, { notation, width: 8 }));
   }
 });
+
+test('labels none omits prefixes, reclaims wrapping width and parses back', () => {
+  const tab = [col([1, 12], [6, 0]), col([2, 5]), col([3, 7])];
+  const ascii = format(tab, { labels: 'none', width: 7 });
+  assert.equal(ascii.split('\n')[0], '-12----');
+  assert.equal(ascii.split('\n\n').length, 2);
+  assert.deepEqual(parse(ascii), tab);
+  assert.deepEqual(parse(format(tab, { labels: 'none', spacing: 1 })), tab);
+  assert.equal(format(tab, { labels: 'invalid' }), format(tab));
+});

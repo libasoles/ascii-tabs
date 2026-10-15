@@ -484,3 +484,38 @@ test('colored notes keep their metadata through edits, Escape, duplication, drag
     assert.equal(await page.$eval('ascii-tabs', el => el.value[0][2]?.[1] ?? null), null);
   });
 });
+
+test('labels none updates layout and copy through attributes and properties', async () => {
+  await withPage('<ascii-tabs labels="none" style="display:block;width:400px"></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => {
+      el.value = [[[3, null, null, null, null, 12]]];
+      navigator.clipboard.writeText = async text => { window.copiedText = text; };
+    });
+    const state = () => page.$eval('ascii-tabs', el => ({
+      labels: el.labels,
+      count: el.querySelectorAll('.ascii-tabs-label').length,
+      width: el.querySelector('.ascii-tabs-line').getBoundingClientRect().width,
+      x: el.querySelector('.ascii-tabs-cell').getBoundingClientRect().x,
+      value: el.value,
+    }));
+    const hidden = await state();
+    assert.equal(hidden.labels, 'none');
+    assert.equal(hidden.count, 0);
+    await page.$eval('ascii-tabs', el => el.copy());
+    assert.equal(await page.evaluate(() => window.copiedText.split('\n')[0]), '-3--');
+    await page.$eval('ascii-tabs', el => { el.labels = 'notes'; });
+    const notes = await state();
+    assert.ok(notes.count >= 6);
+    assert.ok(notes.x > hidden.x);
+    assert.ok(Math.abs(notes.width - hidden.width) < 1);
+    await page.$eval('ascii-tabs', el => el.setAttribute('labels', 'none'));
+    assert.deepEqual(await state(), hidden);
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="0"]');
+    await page.keyboard.type('7');
+    assert.equal(await page.$eval('ascii-tabs', el => el.value[0][0][0]), 7);
+    await page.$eval('ascii-tabs', el => { el.labels = 'invalid'; });
+    assert.equal((await state()).labels, 'numbers');
+    assert.equal(await page.$eval('.ascii-tabs-label', el => el.textContent), '1 ');
+  });
+});
