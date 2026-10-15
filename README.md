@@ -1,6 +1,14 @@
 # ascii-tabs
 
-A zero-dependency web component for writing and showing guitar tabs as plain ASCII text.
+A zero-dependency web component for editing and displaying guitar tablature, with plain ASCII import and export.
+
+**▶ [Try the live demo](https://libasoles.github.io/ascii-tabs/)**: every feature, editable, in your browser.
+
+## See it in action
+
+### Edit and organize tabs
+
+Click a string and type a fret. Navigate with the keyboard, select and move groups of notes, and copy tabs as ASCII. Each Sheet has copy and delete controls, with an add button below.
 
 <a href="https://libasoles.github.io/ascii-tabs/">
   <picture>
@@ -9,18 +17,17 @@ A zero-dependency web component for writing and showing guitar tabs as plain ASC
   </picture>
 </a>
 
-That's one `<ascii-tabs>` element: click a string, type a fret, and copy the result as plain text:
+### Switch notation and spacing
 
-```
-1 -0--0--1--3--3--1--0--------------0--0-------
-2 ----------------------3--1--1--3--------3--3-
-3 ---------------------------------------------
-4 ---------------------------------------------
-5 ---------------------------------------------
-6 ---------------------------------------------
-```
+Show frets, letter names or solfege, and adjust spacing with optional built-in controls. Interface language and string labels are configurable independently.
 
-**▶ [Try the live demo](https://libasoles.github.io/ascii-tabs/)**: every feature, editable, in your browser.
+<img alt="Two rendered tabs: letter note names with notation and spacing controls, and solfege with Spanish controls" src="docs/img/feature-notation.png" width="760">
+
+### Style individual notes
+
+Highlight a melody with per-note colors and bold text, and put notes in parentheses. The screenshot below uses structured note data in the same editor.
+
+<img alt="Guitar tab with red and blue melody notes, bold and normal weight frets, and parenthesized notes" src="docs/img/feature-note-styles.png" width="760">
 
 Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/adr). `tablatura.html` is the original standalone editor this library grew from.
 
@@ -56,16 +63,9 @@ Pass the content as data through the `value` property. This is the preferred way
 </script>
 ```
 
-renders as:
+The component renders that data as:
 
-```
-1 ------------
-2 -------3----
-3 -2--------2-
-4 ----2-------
-5 -0--------0-
-6 ------------
-```
+<img alt="Rendered editor for the initial value example, showing frets on strings 2 through 5 with copy, delete and add controls" src="docs/img/initial-value.png" width="760">
 
 `value` can be set before or after the element upgrades. Read it back the same way; every edit fires `change`:
 
