@@ -100,3 +100,33 @@ test('a consumer can customize the flat Staff background', async () => {
     );
   });
 });
+
+test('note colors accept CSS variables and invalid values cannot inject markup or styles', async () => {
+  await withPage(`
+    <ascii-tabs readonly style="--melody-color: #123456"></ascii-tabs>
+    <script type="module" src="/ascii-tabs.js"></script>
+  `, async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    const result = await page.$eval('ascii-tabs', el => {
+      el.value = [[[
+        { fret: 3, color: 'var(--melody-color)' },
+        { fret: 5, color: 'red; background: lime' },
+        { fret: 7, color: '\"><img src=x onerror=alert(1)>' },
+        9, { fret: 25, color: 'red' }, null,
+      ]]];
+      const notes = [...el.querySelectorAll('.ascii-tabs-fret')];
+      return {
+        colors: notes.map(note => getComputedStyle(note).color),
+        backgrounds: notes.map(note => note.style.background),
+        images: el.querySelectorAll('img').length,
+        invalidFret: el.value[0][0][4],
+      };
+    });
+    assert.equal(result.colors[0], 'rgb(18, 52, 86)');
+    assert.equal(result.colors[1], result.colors[3]);
+    assert.equal(result.colors[2], result.colors[3]);
+    assert.deepEqual(result.backgrounds, ['', '', '', '']);
+    assert.equal(result.images, 0);
+    assert.equal(result.invalidFret, null);
+  });
+});

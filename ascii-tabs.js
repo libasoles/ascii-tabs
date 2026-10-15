@@ -16,6 +16,18 @@ const LABELS = {
   notes: ['e|', 'B|', 'G|', 'D|', 'A|', 'E|'],
 };
 const labelStyle = value => (value === 'notes' ? 'notes' : 'numbers');
+const notationStyle = value => (value === 'letters' || value === 'solfege' ? value : 'frets');
+const OPEN_PITCHES = [4, 11, 7, 2, 9, 4]; // E B G D A E, pitch classes in standard tuning
+const NOTE_NAMES = {
+  letters: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+  solfege: ['do', 'do#', 're', 're#', 'mi', 'fa', 'fa#', 'sol', 'sol#', 'la', 'la#', 'si'],
+};
+const fretValue = note => (note !== null && typeof note === 'object' ? note.fret : note);
+const cloneNote = note => (note !== null && typeof note === 'object' ? { ...note } : note);
+const fretText = (note, string, notation) => {
+  const fret = fretValue(note);
+  return fret === null ? '-' : notationStyle(notation) === 'frets' ? String(fret) : NOTE_NAMES[notation][(OPEN_PITCHES[string] + fret) % 12];
+};
 const toolsPosition = value => (value === 'top' ? 'top' : 'side');
 const sheetVariant = value => (value === 'flat' ? 'flat' : 'default');
 
@@ -34,20 +46,20 @@ const lastUsed = tab => {
   return -1;
 };
 
-// A Column is as wide as its Spacing plus its widest Fret, so Frets never touch
-const columnDigits = column => Math.max(1, ...column.map(v => (v === null ? 1 : String(v).length)));
-const columnWidth = (column, spacing) => spacing + columnDigits(column);
+// Size every String in a Column using its longest displayed Fret or note name.
+const columnDigits = (column, notation) => Math.max(1, ...column.map((v, s) => fretText(v, s, notation).length));
+const columnWidth = (column, spacing, notation) => spacing + columnDigits(column, notation);
 const leadingDashes = spacing => Math.ceil(spacing / 2);
 const visualDashes = count =>
   count ? `<span class="ascii-tabs-string" aria-hidden="true">${'-'.repeat(count)}</span>` : '';
 
 // Split Columns into Staves: [start, end) ranges that fit `capacity` characters
-function layout(tab, spacing, capacity) {
+function layout(tab, spacing, capacity, notation) {
   const staves = [];
   let start = 0;
   let used = 0;
   for (let c = 0; c < tab.length; c++) {
-    const width = columnWidth(tab[c], spacing);
+    const width = columnWidth(tab[c], spacing, notation);
     if (c > start && used + width > capacity) {
       staves.push([start, c]);
       start = c;
@@ -60,19 +72,19 @@ function layout(tab, spacing, capacity) {
 }
 
 // One Tab as plain ASCII, every Staff cut right after its last Column
-function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', width = Infinity } = {}) {
+function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', notation = 'frets', width = Infinity } = {}) {
   const columns = tab.slice(0, lastUsed(tab) + 1);
   if (!columns.length) return '';
   const lead = '-'.repeat(leadingDashes(spacing));
   const trail = '-'.repeat(spacing - lead.length);
-  return layout(columns, spacing, width - LABEL_WIDTH)
+  return layout(columns, spacing, width - LABEL_WIDTH, notation)
     .map(([start, end]) => {
       const lines = [];
       for (let s = 0; s < STRING_COUNT; s++) {
         let line = LABELS[labelStyle(labels)][s];
         for (let c = start; c < end; c++) {
-          const digits = columnDigits(columns[c]);
-          const fret = columns[c][s] === null ? '-' : String(columns[c][s]);
+          const digits = columnDigits(columns[c], notation);
+          const fret = fretText(columns[c][s], s, notation);
           line += lead + fret.padEnd(digits, '-') + trail;
         }
         lines.push(line);
@@ -149,6 +161,10 @@ const MESSAGES_EN = {
   add: 'New tab',
   fret: 'Fret',
   spacing: 'Spacing',
+  notation: 'Notation',
+  frets: 'Fret numbers',
+  letters: 'Letters (E D F)',
+  solfege: 'Spanish notes (mi re fa)',
 };
 
 const MESSAGES_ES = {
@@ -159,6 +175,10 @@ const MESSAGES_ES = {
   add: 'Nueva tablatura',
   fret: 'Traste',
   spacing: 'Espaciado',
+  notation: 'Notación',
+  frets: 'Números de traste',
+  letters: 'Letras (E D F)',
+  solfege: 'Notas en español (mi re fa)',
 };
 
 const PRESETS = { en: MESSAGES_EN, es: MESSAGES_ES };
@@ -225,7 +245,8 @@ const STYLES = `
   color: var(--ascii-tabs-ink);
 }
 ascii-tabs .ascii-tabs-hint { margin: 0 0 16px; font-size: .7em; color: var(--ascii-tabs-dash); }
-ascii-tabs .ascii-tabs-spacing { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; font-size: 14px; }
+ascii-tabs .ascii-tabs-spacing, ascii-tabs .ascii-tabs-notation { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; font-size: 14px; }
+ascii-tabs .ascii-tabs-notation-input { font: inherit; color: inherit; background: var(--ascii-tabs-sheet); border: 1px solid var(--ascii-tabs-line); border-radius: 4px; padding: 4px; }
 ascii-tabs .ascii-tabs-spacing-input { accent-color: var(--ascii-tabs-accent); }
 ascii-tabs .ascii-tabs-sheet {
   display: flex; gap: 12px;
@@ -350,11 +371,11 @@ function injectStyles() {
   document.head.prepend(style);
 }
 
-// What <ascii-tabs-storage> keeps in localStorage: Tabs → Columns → 6 cells, each '' or the Fret as text
+// Storage keeps legacy cells as '' or Fret text, and colored notes as objects
 // (the shape the original editor stores). Reading is lenient: numbers and null work too, and so does
 // a single Tab (an array of Columns) instead of an array of Tabs.
 const serializeStored = tabs =>
-  JSON.stringify(tabs.map(tab => tab.map(column => column.map(v => (v === null ? '' : String(v))))));
+  JSON.stringify(tabs.map(tab => tab.map(column => column.map(v => (v === null ? '' : typeof v === 'object' ? v : String(v))))));
 
 function readStored(json) {
   let raw;
@@ -379,7 +400,14 @@ function normalizeValue(value) {
   const tabs = value.filter(Array.isArray).map(tab =>
     tab.map(column => {
       const out = emptyColumn();
-      if (Array.isArray(column)) for (let s = 0; s < STRING_COUNT; s++) if (isFret(column[s])) out[s] = column[s];
+      if (Array.isArray(column)) for (let s = 0; s < STRING_COUNT; s++) {
+        const note = column[s];
+        if (isFret(note)) out[s] = note;
+        else if (note && typeof note === 'object' && isFret(note.fret)) {
+          out[s] = { fret: note.fret };
+          if (typeof note.color === 'string') out[s].color = note.color;
+        }
+      }
       return out;
     }),
   );
@@ -450,7 +478,7 @@ class AsciiTabs extends Base {
   #declared = null; // parts the consumer wrote as children, null for the default composition
 
   get value() {
-    return this.#tabs.map(tab => tab.slice(0, lastUsed(tab) + 1).map(column => [...column]));
+    return this.#tabs.map(tab => tab.slice(0, lastUsed(tab) + 1).map(column => column.map(cloneNote)));
   }
 
   set value(value) {
@@ -468,7 +496,7 @@ class AsciiTabs extends Base {
     }
   }
 
-  static observedAttributes = ['readonly', 'spacing', 'labels', 'lang', 'tools'];
+  static observedAttributes = ['readonly', 'spacing', 'labels', 'notation', 'lang', 'tools'];
 
   // Strings: the `lang` preset (English by default) with `messages` merged over it
   get #text() {
@@ -512,6 +540,14 @@ class AsciiTabs extends Base {
     this.setAttribute('labels', labelStyle(value));
   }
 
+  get notation() {
+    return notationStyle(this.getAttribute('notation'));
+  }
+
+  set notation(value) {
+    this.setAttribute('notation', notationStyle(value));
+  }
+
   get tools() {
     return toolsPosition(this.getAttribute('tools'));
   }
@@ -548,6 +584,10 @@ class AsciiTabs extends Base {
   attributeChangedCallback(name) {
     if (name === 'spacing') return this.#applySpacing();
     if (name === 'labels') return this.#render();
+    if (name === 'notation') {
+      for (const select of this.querySelectorAll('.ascii-tabs-notation-input')) select.value = this.notation;
+      return this.#render();
+    }
     // Moving the tools changes the Staves' width without resizing the element
     if (name === 'tools') return this.#measure();
     this.#rebuild();
@@ -569,7 +609,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'readonly', 'spacing', 'labels', 'tools', 'variant', 'theme', 'messages']) {
+    for (const name of ['value', 'readonly', 'spacing', 'labels', 'notation', 'tools', 'variant', 'theme', 'messages']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -658,6 +698,19 @@ class AsciiTabs extends Base {
       } else if (part.type === 'sheet' && !this.#sheetsEl) {
         this.#sheetsEl = this.#el('div', 'ascii-tabs-sheets', this);
         this.#sheetTools = part.tools ?? [];
+      } else if (part.type === 'notation') {
+        const label = this.#el('label', 'ascii-tabs-notation', this);
+        const text = this.#el('span', 'ascii-tabs-notation-label', label);
+        if (part.content) text.replaceChildren(...part.content.map(n => n.cloneNode(true)));
+        else text.textContent = this.#text.notation;
+        const select = this.#el('select', 'ascii-tabs-notation-input', label);
+        for (const value of ['frets', 'letters', 'solfege']) {
+          const option = this.#el('option', '', select);
+          option.value = value;
+          option.textContent = this.#text[value];
+        }
+        select.value = this.notation;
+        select.addEventListener('change', () => (this.notation = select.value));
       } else if (part.type === 'spacing') {
         const label = this.#el('label', 'ascii-tabs-spacing', this);
         const text = this.#el('span', 'ascii-tabs-spacing-label', label);
@@ -743,17 +796,17 @@ class AsciiTabs extends Base {
     const need = Math.max(lastUsed(tab) + (this.readonly ? 1 : 2), this.#cur && this.#cur.t === t ? this.#cur.c + 1 : 0, 1);
     while (tab.length < need) tab.push(emptyColumn());
     tab.length = need;
-    let staves = layout(tab, this.#spacing, this.#capacity);
+    let staves = layout(tab, this.#spacing, this.#capacity, this.notation);
     // Fill the last Staff with empty Columns, so every Staff spans the Sheet and, when editable,
     // every slot can be clicked. `value` and copy trim them.
     const [start] = staves[staves.length - 1];
     let used = 0;
-    for (let c = start; c < tab.length; c++) used += columnWidth(tab[c], this.#spacing);
+    for (let c = start; c < tab.length; c++) used += columnWidth(tab[c], this.#spacing, this.notation);
     while (used + this.#spacing + 1 <= this.#capacity) {
       tab.push(emptyColumn());
       used += this.#spacing + 1;
     }
-    staves = layout(tab, this.#spacing, this.#capacity);
+    staves = layout(tab, this.#spacing, this.#capacity, this.notation);
     this.#staves[t] = staves;
     return staves;
   }
@@ -768,7 +821,7 @@ class AsciiTabs extends Base {
       for (const [start, end] of this.#fit(t)) {
         // Dashes after the last Column, so every Staff ends flush with the Sheet
         let used = 0;
-        for (let c = start; c < end; c++) used += columnWidth(tab[c], this.#spacing);
+        for (let c = start; c < end; c++) used += columnWidth(tab[c], this.#spacing, this.notation);
         const fill = visualDashes(this.#capacity - used);
         html += '<div class="ascii-tabs-staff">';
         for (let s = 0; s < STRING_COUNT; s++) {
@@ -776,13 +829,14 @@ class AsciiTabs extends Base {
           for (let c = start; c < end; c++) {
             const isCur = this.#cur && this.#cur.t === t && this.#cur.c === c && this.#cur.s === s;
             const fret = tab[c][s];
-            const digits = columnDigits(tab[c]);
+            const digits = columnDigits(tab[c], this.notation);
+            const text = fretText(fret, s, this.notation);
             const selected = !this.#drag?.selecting && this.#selection.some(p => p.t === t && p.c === c && p.s === s);
             const cls = `ascii-tabs-cell${isCur ? ' ascii-tabs-cur' : ''}${fret !== null ? ' ascii-tabs-has' : ''}${selected ? ' ascii-tabs-selected' : ''}`;
             const body =
               fret === null
                 ? `<span class="ascii-tabs-mid ascii-tabs-string" aria-hidden="true">-</span><span class="ascii-tabs-caret" aria-hidden="true"> </span>${visualDashes(digits - 1)}`
-                : `<span class="ascii-tabs-fret">${fret}</span>${visualDashes(digits - String(fret).length)}`;
+                : `<span class="ascii-tabs-fret">${text}</span>${visualDashes(digits - text.length)}`;
             html += `<span class="${cls}" data-t="${t}" data-c="${c}" data-s="${s}">${visualDashes(lead.length)}${body}${visualDashes(trail.length)}</span>`;
           }
           html += `${fill}</span>`;
@@ -790,6 +844,11 @@ class AsciiTabs extends Base {
         html += '</div>';
       }
       el.innerHTML = html;
+      // Assign through the CSSOM: consumer colors never become HTML or extra declarations.
+      for (const cell of el.querySelectorAll('.ascii-tabs-has')) {
+        const note = tab[+cell.dataset.c][+cell.dataset.s];
+        if (note.color) cell.querySelector('.ascii-tabs-fret').style.color = note.color;
+      }
       const empty = lastUsed(tab) < 0;
       for (const del of this.#sheetEls[t]?.querySelectorAll('.ascii-tabs-delete') ?? []) {
         del.disabled = this.#tabs.length === 1 && empty && !del._forceEnabled;
@@ -833,8 +892,10 @@ class AsciiTabs extends Base {
   #setFret(t, c, s, fret) {
     const tab = this.#tabs[t];
     while (tab.length <= c) tab.push(emptyColumn());
-    if (tab[c][s] === fret) return false;
-    tab[c][s] = fret;
+    const previous = tab[c][s];
+    if (previous === fret || (previous && fret && typeof previous === 'object' && typeof fret === 'object'
+      && previous.fret === fret.fret && previous.color === fret.color)) return false;
+    tab[c][s] = cloneNote(fret);
     return true;
   }
 
@@ -907,7 +968,10 @@ class AsciiTabs extends Base {
     const { t, c, s } = this.#cur;
     if (this.#draft === null) this.#draftOrigin = this.#tabs[t][c]?.[s] ?? null;
     this.#draft = draft;
-    const changed = this.#setFret(t, c, s, draft === '' ? null : Number(draft));
+    const previous = this.#tabs[t][c]?.[s];
+    const next = draft === '' ? null : previous && typeof previous === 'object'
+      ? { ...previous, fret: Number(draft) } : Number(draft);
+    const changed = this.#setFret(t, c, s, next);
     this.#render();
     if (changed) this.#emitChange();
   }
@@ -966,7 +1030,7 @@ class AsciiTabs extends Base {
       case 'Backspace': {
         e.preventDefault();
         const { t, c, s } = this.#cur;
-        return this.#edit((this.#draft ?? String(this.#tabs[t][c][s] ?? '')).slice(0, -1));
+        return this.#edit((this.#draft ?? String(fretValue(this.#tabs[t][c][s]) ?? '')).slice(0, -1));
       }
       case 'Delete':
         e.preventDefault();
@@ -994,7 +1058,7 @@ class AsciiTabs extends Base {
     const last = Math.max(...this.#selection.map(p => p.c));
     const columns = Array.from({ length: last - first + 1 }, emptyColumn);
     for (const { t, c, s } of this.#selection) columns[c - first][s] = this.#tabs[t][c][s];
-    return format(columns, { spacing: this.#spacing, labels: this.labels });
+    return format(columns, { spacing: this.#spacing, labels: this.labels, notation: this.notation });
   }
 
   #onCopy = e => {
@@ -1168,7 +1232,7 @@ class AsciiTabs extends Base {
   async copy(index = 0) {
     const tab = this.#tabs[index];
     if (!tab) return;
-    await copyText(this.#selection.length && this.#selection[0].t === index ? this.#selectionText() : format(tab, { spacing: this.#spacing, labels: this.labels, width: this.#capacity + LABEL_WIDTH }));
+    await copyText(this.#selection.length && this.#selection[0].t === index ? this.#selectionText() : format(tab, { spacing: this.#spacing, labels: this.labels, notation: this.notation, width: this.#capacity + LABEL_WIDTH }));
     const button = this.#sheetEls[index]?.querySelector('.ascii-tabs-copy');
     if (!button) return;
     this.#flashCopied(button);

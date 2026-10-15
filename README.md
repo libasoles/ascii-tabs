@@ -40,7 +40,7 @@ Drag from an empty cell or a blank area of a Sheet to select notes inside a rect
 
 Pass the content as data through the `value` property. This is the preferred way to fill the element: no parsing, nothing ambiguous, and it is the same shape `value` and `change` give back.
 
-`value` is `(number|null)[][][]`: an array of Tabs, each an array of Columns, each Column 6 entries from String 1 to String 6, a Fret (0–24) or `null` for an empty String.
+`value` is `(number|{ fret: number, color?: string }|null)[][][]`: an array of Tabs, each an array of Columns, each Column 6 entries from String 1 to String 6, a Fret (0–24) or `null` for an empty String.
 
 ```html
 <ascii-tabs id="song"></ascii-tabs>
@@ -81,6 +81,21 @@ song.value = state;
 song.addEventListener('change', e => { state = e.detail.value; save(state); });
 function load(next) { state = next; song.value = state; }
 ```
+
+### Per-note colors
+
+Use an object instead of a number to give a note its own CSS color:
+
+```js
+song.value = [[
+  [{ fret: 3, color: '#e63946' }, null, null, null, null, null],
+  [5, { fret: 2, color: 'royalblue' }, null, null, null, null],
+]];
+```
+
+Numbers still use the default color. Objects require a valid `fret` (0–24); omitted or invalid colors use the default. Colors are preserved in `value`, `change`, storage, edits, moves and duplicates. Returned objects are independent copies. Color applies only to the note, including while focused; string dashes keep their theme color. CSS variables such as `var(--melody-color)` work too.
+
+Colors are available through structured data only. ASCII input has no color information, and copying or calling `format` exports plain text without colors.
 
 If all you have is ASCII text, put it in a `<pre>` instead (see below).
 
@@ -212,6 +227,39 @@ Spacing is the number of dashes between two Columns' Frets: `spacing="N"` (1–6
 </ascii-tabs>
 ```
 
+## Note notation
+
+`notation` changes the displayed and copied cell text: `frets` (default), `letters`
+(`C D E F G A B`), or `solfege` (lowercase `do re mi fa sol la si`). Notes use
+standard guitar tuning, String 1 to 6: E B G D A E. For example, Fret 0 on
+String 1 is `E` or `mi`, and Fret 3 is `G` or `sol`. Accidentals use sharps
+(`F#`, `fa#`); octaves share the same name.
+
+```html
+<ascii-tabs notation="letters"></ascii-tabs>
+<ascii-tabs notation="solfege" lang="es"></ascii-tabs>
+
+<!-- Optional selector, also available in read-only mode -->
+<ascii-tabs notation="solfege" lang="es">
+  <ascii-tabs-notation></ascii-tabs-notation>
+  <ascii-tabs-spacing></ascii-tabs-spacing>
+  <ascii-tabs-hint></ascii-tabs-hint>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs>
+```
+
+Also available as the `notation` property and the `format(tab, { notation: 'solfege' })`
+option. Every Column uses its longest displayed name (including `sol#`) on all six
+Strings, keeping chords aligned and wrapping by the actual text width. Spacing
+still adds the configured dashes around each Column.
+
+Editing, `value`, storage and `change` keep numeric Frets (0–24). Type fret
+numbers in every notation. `lang` controls interface text independently of note
+notation, and `labels` still controls the String labels. The copy button exports
+the selected notation. Import and paste accept numeric tablature only: note names
+without octaves cannot identify the original Fret (for example, 0, 12 and 24).
+Switch to `frets` before copying when you need to paste the result back.
+
 ## String labels
 
 Strings are labelled `1`–`6` by default, on screen and in copied text. `labels="notes"` names them in standard tuning (`e B G D A E`, String 1 to 6). Parsing accepts both styles whatever the attribute says.
@@ -289,7 +337,7 @@ Built-in text is English. `lang="es"` switches every built-in string to Spanish.
 </script>
 ```
 
-Keys: `hint`, `copy`, `copied`, `delete`, `add`, `fret`, `spacing`.
+Keys: `hint`, `copy`, `copied`, `delete`, `add`, `fret`, `spacing`, `notation`, `frets`, `letters`, `solfege`.
 
 ## Storage
 
@@ -301,6 +349,6 @@ Nothing is stored unless you add the storage part. `<ascii-tabs-storage key="…
 </ascii-tabs>
 ```
 
-A root whose only part child is the storage part still gets the default composition. The stored format is Tabs → Columns → 6 cells, each `""` or the Fret as text (as in the original editor); reading also accepts numbers and a single Tab.
+A root whose only part child is the storage part still gets the default composition. The stored format is Tabs → Columns → 6 cells, each `""` or the Fret as text (as in the original editor); colored notes are stored as objects. Reading also accepts numbers and a single Tab.
 
 MIT licensed.

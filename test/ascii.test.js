@@ -114,3 +114,55 @@ test('parse keeps accepting both label styles whatever the format used', () => {
   assert.deepEqual(parse(format(tab, { labels: 'notes' })), tab);
   assert.deepEqual(parse(format(tab, { labels: 'numbers' })), tab);
 });
+
+test('note notation converts all open Strings and octaves in standard tuning', () => {
+  for (const [notation, names] of [
+    ['letters', ['E', 'B', 'G', 'D', 'A', 'E']],
+    ['solfege', ['mi', 'si', 'sol', 're', 'la', 'mi']],
+  ]) {
+    for (const fret of [0, 12, 24]) {
+      const lines = format([Array(6).fill(fret)], { notation }).split('\n');
+      assert.deepEqual(lines.map(line => line.slice(2).replace(/-/g, '')), names);
+      assert.equal(new Set(lines.map(line => line.length)).size, 1);
+    }
+  }
+});
+
+test('note names, sharps and empty cells share aligned Column widths at every Spacing', () => {
+  const tab = [col([1, 0], [3, 1]), col(), col([1, 1], [2, 3]), col([1, 3])];
+  for (const spacing of [1, 2, 3, 4, 5, 6]) {
+    const lines = format(tab, { notation: 'solfege', spacing }).split('\n');
+    const lead = Math.ceil(spacing / 2);
+    const first = 2 + lead;
+    const third = first + 4 + spacing + 1 + spacing;
+    assert.equal(lines[0].slice(first, first + 4), 'mi--');
+    assert.equal(lines[2].slice(first, first + 4), 'sol#');
+    assert.equal(lines[0].slice(third, third + 2), 'fa');
+    assert.equal(lines[1].slice(third, third + 2), 're');
+    assert.equal(new Set(lines.map(line => line.length)).size, 1);
+  }
+  assert.equal(format([col([1, 2]), col([1, 4])], { notation: 'letters' }).split('\n')[0], '1 -F#--G#-');
+});
+
+test('note notation wraps using the displayed names and preserves labels', () => {
+  const tab = [col([1, 3]), col([1, 4]), col([1, 0])];
+  const staves = format(tab, { notation: 'solfege', width: 12, labels: 'notes' }).split('\n\n');
+  assert.equal(staves.length, 2);
+  assert.equal(staves[0].split('\n')[0], 'e|-sol-');
+  assert.equal(staves[1].split('\n')[0], 'e|-sol#--mi-');
+  for (const staff of staves) {
+    assert.equal(new Set(staff.split('\n').map(line => line.length)).size, 1);
+    assert.ok(staff.split('\n').every(line => line.length <= 12));
+  }
+  assert.equal(format(tab, { notation: 'unknown' }), format(tab));
+  assert.equal(format([], { notation: 'solfege' }), '');
+});
+
+
+test('format exports colored notes as plain frets with matching widths and notation', () => {
+  const colored = [col([1, { fret: 12, color: 'red' }], [2, { fret: 0 }]), col([1, 5])];
+  const plain = [col([1, 12], [2, 0]), col([1, 5])];
+  for (const notation of ['frets', 'letters', 'solfege']) {
+    assert.equal(format(colored, { notation, width: 8 }), format(plain, { notation, width: 8 }));
+  }
+});

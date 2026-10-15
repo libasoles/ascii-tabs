@@ -332,3 +332,114 @@ test('drag preview preserves every selected fret and follows the pointer as a gr
     assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0].slice(0, 3)), selectedColumns);
   });
 });
+
+test('notation selector changes the display and copy while editing keeps numeric Frets', async () => {
+  await withPage(`<ascii-tabs lang="es">
+    <ascii-tabs-notation></ascii-tabs-notation>
+    <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+  </ascii-tabs><script type="module" src="/ascii-tabs.js"></script>`, async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => {
+      window.changes = [];
+      el.addEventListener('change', event => window.changes.push(event.detail.value));
+      el.value = [[[0, 0, 0, 0, 0, 0]]];
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+        writeText: async text => { window.copiedText = text; },
+      } });
+    });
+    assert.equal(await page.$eval('.ascii-tabs-notation-label', el => el.textContent), 'Notación');
+    await page.select('.ascii-tabs-notation-input', 'letters');
+    assert.deepEqual(await page.$$eval('.ascii-tabs-fret', cells => cells.map(el => el.textContent)), ['E', 'B', 'G', 'D', 'A', 'E']);
+    await page.select('.ascii-tabs-notation-input', 'solfege');
+    assert.deepEqual(await page.$$eval('.ascii-tabs-fret', cells => cells.map(el => el.textContent)), ['mi', 'si', 'sol', 're', 'la', 'mi']);
+    assert.equal(await page.evaluate(() => window.changes.length), 0);
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="0"]');
+    await page.keyboard.type('4');
+    assert.equal(await page.$eval('.ascii-tabs-cur .ascii-tabs-fret', el => el.textContent), 'sol#');
+    assert.equal(await page.$eval('ascii-tabs', el => el.value[0][0][0]), 4);
+    assert.equal(await page.evaluate(() => window.changes.at(-1)[0][0][0]), 4);
+    await page.$eval('ascii-tabs', el => el.copy());
+    const copied = await page.evaluate(() => window.copiedText);
+    assert.equal(copied.split('\n')[0], '1 -sol#-');
+    assert.equal(new Set(copied.split('\n').map(line => line.length)).size, 1);
+    await page.$eval('ascii-tabs', el => { el.notation = 'frets'; });
+    assert.equal(await page.$eval('.ascii-tabs-notation-input', el => el.value), 'frets');
+    assert.equal(await page.$eval('.ascii-tabs-cur .ascii-tabs-fret', el => el.textContent), '4');
+    assert.equal(await page.evaluate(() => window.changes.length), 1);
+  });
+});
+
+test('long Spanish notes align across Strings and wrap within a narrow Sheet', async () => {
+  await withPage(`<ascii-tabs readonly notation="solfege" spacing="1" tools="top">
+    <ascii-tabs-notation></ascii-tabs-notation>
+    <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+  </ascii-tabs><script type="module" src="/ascii-tabs.js"></script>`, async page => {
+    await page.setViewport({ width: 360, height: 800 });
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => {
+      el.value = [Array.from({ length: 16 }, (_, c) => [c % 2 ? 4 : 0, 1, 0, 0, 0, 0])];
+    });
+    assert.ok(await page.$$eval('.ascii-tabs-staff', staves => staves.length > 1));
+    const geometry = await page.$$eval('.ascii-tabs-staff', staves => staves.map(staff => {
+      const lines = [...staff.querySelectorAll('.ascii-tabs-line')];
+      const columns = lines.map(line => [...line.querySelectorAll('.ascii-tabs-cell')].map(cell => {
+        const box = cell.getBoundingClientRect();
+        return { left: box.left, width: box.width };
+      }));
+      const right = staff.getBoundingClientRect().right;
+      return { columns, fits: [...staff.querySelectorAll('.ascii-tabs-cell')].every(cell => cell.getBoundingClientRect().right <= right + 1) };
+    }));
+    for (const staff of geometry) {
+      assert.ok(staff.fits);
+      for (const line of staff.columns) {
+        assert.equal(line.length, staff.columns[0].length);
+        for (let c = 0; c < line.length; c++) {
+          // Chromium rounds adjacent text runs to fractional CSS pixels.
+          assert.ok(Math.abs(line[c].left - staff.columns[0][c].left) < 0.5);
+          assert.ok(Math.abs(line[c].width - staff.columns[0][c].width) < 0.5);
+        }
+      }
+    }
+    await page.select('.ascii-tabs-notation-input', 'letters');
+    assert.equal(await page.$eval('ascii-tabs', el => el.notation), 'letters');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][1]), [4, 1, 0, 0, 0, 0]);
+  });
+});
+
+
+test('colored notes keep their metadata through edits, Escape, duplication, dragging and storage', async () => {
+  await withPage(selectionMarkup, async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => {
+      const note = { fret: 12, color: '#e63946' };
+      el.value = [[[note, 5, null, null, null, null]]];
+      note.color = 'green';
+      const copy = el.value;
+      copy[0][0][0].color = 'blue';
+      window.changes = [];
+      el.addEventListener('change', e => window.changes.push(e.detail.value));
+    });
+    const color = () => page.$eval('.ascii-tabs-cell[data-c="0"][data-s="0"] .ascii-tabs-fret', el => getComputedStyle(el).color);
+    assert.equal(await color(), 'rgb(230, 57, 70)');
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="0"]');
+    assert.equal(await color(), 'rgb(230, 57, 70)');
+    await page.keyboard.press('Backspace');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0][0]), { fret: 1, color: '#e63946' });
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0][0]), { fret: 12, color: '#e63946' });
+    await page.keyboard.press('3');
+    await page.keyboard.down('Alt');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Alt');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][1][0]), { fret: 3, color: '#e63946' });
+    await dragNote(page, [1, 0], [2, 1]);
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][2][1]), { fret: 3, color: '#e63946' });
+    assert.deepEqual(await page.evaluate(() => window.changes.at(-1)[0][2][1]), { fret: 3, color: '#e63946' });
+    await page.reload();
+    await page.waitForSelector('.ascii-tabs-cell');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][2][1]), { fret: 3, color: '#e63946' });
+    await page.click('.ascii-tabs-cell[data-c="2"][data-s="1"]');
+    await page.keyboard.press('Delete');
+    assert.equal(await page.$eval('ascii-tabs', el => el.value[0][2]?.[1] ?? null), null);
+  });
+});

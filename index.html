@@ -124,6 +124,23 @@ E|-----3-|</pre>
   </section>
 
   <section>
+    <h2>Per-note colors</h2>
+    <p>With structured <code>value</code> data, replace a fret number with <code>{ fret: 3, color: '#b91c1c' }</code> to give that note its own CSS color. Numbers keep the default color; omitted or invalid colors fall back to it. CSS variables such as <code>var(--melody-color)</code> work too.</p>
+    <p>The color follows the note through edits, moves, duplicates, <code>change</code> events and storage. ASCII input has no color information, and copying exports plain text without colors.</p>
+    <div class="variants">
+      <div class="demo"><h3>Colored melody (editable)</h3><div class="live"><ascii-tabs id="colors-demo" theme="light" style="background: var(--ascii-tabs-paper); padding: 16px; border-radius: 8px">
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs></div>
+<pre class="snippet">document.getElementById('colors-demo').value = [[
+  [{ fret: 0, color: '#b91c1c' }, null, null, null, 3, null],
+  [{ fret: 2, color: '#b91c1c' }, null, null, null, null, null],
+  [{ fret: 3, color: 'royalblue' }, null, null, null, 2, null],
+  [5, null, null, null, null, null],
+]];</pre></div>
+    </div>
+  </section>
+
+  <section>
     <h2>Copy</h2>
     <p>The copy button is part of the Sheet. Leave <code>&lt;ascii-tabs-copy&gt;</code> out and there is none; put content inside to replace the icon.</p>
     <div class="variants">
@@ -222,6 +239,47 @@ E|-----3-|</pre>
 4 ----------
 5 ----------
 6 ----------</pre>
+</ascii-tabs></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 id="note-notation">Note notation</h2>
+    <p>Choose fret numbers, letters (<code>E D F</code>) or lowercase Spanish notes (<code>mi re fa</code>). Open String 1 is E / mi in standard tuning. Columns grow to fit names such as <code>sol#</code>, keeping all six Strings aligned. Keep typing fret numbers to edit; copying uses the selected notation. To paste the result back, copy in fret numbers.</p>
+    <table class="shortcuts" aria-labelledby="note-notation">
+      <thead><tr><th scope="col">Attribute</th><th scope="col">Displayed cells</th></tr></thead>
+      <tbody>
+        <tr><td><code>notation="frets"</code> (default)</td><td>Fret numbers, 0–24</td></tr>
+        <tr><td><code>notation="letters"</code></td><td>C D E F G A B</td></tr>
+        <tr><td><code>notation="solfege"</code></td><td>do re mi fa sol la si</td></tr>
+      </tbody>
+    </table>
+    <p>Notes follow standard tuning, String 1 to 6: E B G D A E. Accidentals use sharps (<code>F#</code>, <code>fa#</code>), and octaves share the same name: Frets 0, 12 and 24 on String 1 all display E / mi. Import and paste accept numeric tablature only.</p>
+    <p>Add <code>&lt;ascii-tabs-notation&gt;</code> for the optional selector, including in read-only mode. The <code>notation</code> property and <code>format(tab, { notation: 'solfege' })</code> use the same options. <code>lang</code> controls interface language and <code>labels</code> controls String labels independently. Editing, <code>value</code>, storage and <code>change</code> preserve the original Frets.</p>
+    <div class="variants">
+      <div class="demo"><h3>Editable notation selector</h3><div class="live"><ascii-tabs notation="letters">
+  <ascii-tabs-notation></ascii-tabs-notation>
+  <ascii-tabs-spacing></ascii-tabs-spacing>
+  <ascii-tabs-hint></ascii-tabs-hint>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+  <pre>
+1 -0--1--3--4--12-
+2 -0--------------
+3 -0--------------
+4 -0--------------
+5 -0--------------
+6 -0--------------</pre>
+</ascii-tabs></div></div>
+      <div class="demo"><h3>Notas en español</h3><div class="live"><ascii-tabs readonly notation="solfege" lang="es" spacing="1">
+  <ascii-tabs-notation></ascii-tabs-notation>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+  <pre>
+1 -0--1--3--4--12-
+2 -0--------------
+3 -0--------------
+4 -0--------------
+5 -0--------------
+6 -0--------------</pre>
 </ascii-tabs></div></div>
     </div>
   </section>
@@ -420,6 +478,12 @@ json.addEventListener('input', () => {
       [null, null, 2, null, 0, null],
     ],
   ];
+  document.getElementById('colors-demo').value = [[
+    [{ fret: 0, color: '#b91c1c' }, null, null, null, 3, null],
+    [{ fret: 2, color: '#b91c1c' }, null, null, null, null, null],
+    [{ fret: 3, color: 'royalblue' }, null, null, null, 2, null],
+    [5, null, null, null, null, null],
+  ]];
   document.getElementById('messages-demo').messages = {
     hint: 'Tap a string, then type a fret.',
     copy: 'Copy as ASCII',
