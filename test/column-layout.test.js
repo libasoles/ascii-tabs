@@ -317,3 +317,23 @@ test('external layout set before upgrade wins over storage and leaves the ASCII 
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('external-test'))[0][1][0]), '8');
   });
 });
+
+test('GitHub Pages alignment demo switches layouts, reports collisions and resets to editable fixed Columns', async () => {
+  await withPage(await readFile(new URL('../index.html', import.meta.url), 'utf8'), async page => {
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.waitForSelector('#alignment-demo .ascii-tabs-area');
+    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 4);
+    await page.click('#alignment-collisions');
+    await page.waitForFunction(() => document.getElementById('alignment-status').textContent.startsWith('layoutoverflow:'));
+    await page.click('#alignment-ascii');
+    assert.equal(await page.$eval('#alignment-demo', el => el.columnLayout), null);
+    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 3);
+    await page.click('#alignment-reset');
+    await page.click(`#alignment-demo ${cell(3)}`);
+    await page.keyboard.type('9');
+    assert.equal(await page.$eval('#alignment-demo', el => el.value[0][3][0]), 9);
+    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 4);
+    assert.deepEqual(errors, []);
+  });
+});
