@@ -123,19 +123,66 @@ E|-----3-|</pre>
     </div>
   </section>
 
+  <section id="score-alignment">
+    <h2>Aligning with a score</h2>
+    <p>When a score renderer controls horizontal spacing, supply <code>columnLayout</code>: one <code>{ width, positions }</code> per Tab. Each <code>positions[c]</code> is the center of Column <code>c</code> in CSS pixels from the left edge of the String area (<code>.ascii-tabs-area</code>). Labels, Sheet padding and tools sit outside those coordinates. Align that area's origin with the score's origin and convert the score's coordinates to CSS pixels.</p>
+    <p>Each Tab stays in a single Staff with six full-width Strings and horizontal scrolling when needed. One- and two-digit Frets, note names and parentheses share the supplied centers. Spacing affects ASCII copy, while the screen follows the external positions.</p>
+    <div class="variants">
+      <div class="demo"><h3>External positions (editable)</h3><div class="live"><ascii-tabs id="alignment-demo" variant="flat" tools="top">
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs></div>
+<pre class="snippet">const editor = document.getElementById('alignment-demo');
+editor.setDocument({
+  value: [[
+    [5, 7, null, null, null, null],
+    [null, null, null, null, 0, null],
+    [12, null, null, null, null, null],
+    [null, null, null, null, null, null],
+  ]],
+  columnLayout: [{ width: 640, positions: [84.5, 132, 201.25, 290] }],
+});
+
+// Geometry-only updates keep the cursor and typing in progress.
+editor.columnLayout = [{ width: 640, positions: [84.5, 140, 220, 320] }];
+
+editor.addEventListener('layoutoverflow', ({ detail }) =&gt; {
+  // { index, width, collisions }
+  // A collision has zero-based string and columns indices, overlap in CSS
+  // pixels, and an optional edge: 'left' or 'right'.
+  console.log(detail);
+});
+
+// Restore automatic ASCII layout, wrapping and padding.
+editor.columnLayout = null;</pre>
+        <div class="live-controls" role="group" aria-label="Score alignment examples">
+          <button id="alignment-reset" type="button">Reset external layout</button>
+          <button id="alignment-collisions" type="button">Reset with collisions</button>
+          <button id="alignment-ascii" type="button">Switch to ASCII layout</button>
+        </div>
+        <p id="alignment-status" role="status">External layout: four fixed Columns, including the empty final Column. Click a String to edit.</p>
+      </div>
+    </div>
+    <p><code>width</code> must be finite and positive; positions must be finite, strictly increasing, within <code>[0, width]</code>, and match every logical Column, including empty trailing Columns. A zero-Column Tab uses <code>positions: []</code> and still displays six Strings. Invalid layouts throw a descriptive <code>TypeError</code> before changing state. Geometry is copied on assignment and retrieval.</p>
+    <p>Use <code>setDocument({ value, columnLayout })</code> to change content and positions atomically. Assign <code>columnLayout</code> alone to reposition existing Columns; assigning <code>value</code> while a layout is active requires the same Tab and Column counts. Programmatic updates do not emit <code>change</code>. Both <code>value</code> and <code>change.detail.value</code> preserve trailing empty Columns in this mode. Geometry stays outside <code>Tab[]</code>.</p>
+    <p>Keyboard editing, mobile input, selection, dragging and duplication work within the existing Columns. Clicks and drops use the nearest center; exact ties choose the earlier Column. Navigation stops at the ends. Paste, duplication and group moves that exceed the available Columns are rejected in full. Deleting a Fret empties its cell. Add/delete Tab buttons are disabled and <code>addTab()</code>/<code>removeTab()</code> do nothing; the consumer changes structure through <code>setDocument()</code>.</p>
+    <p><code>layoutoverflow</code> bubbles after rendering if Frets collide on the same String or cross the area's edges. Repeated identical reports are suppressed until geometry or collisions change. The editor keeps the centers fixed: recalculate the score spacing and provide new positions as well as a new width. Increasing the width alone cannot separate existing centers. Set <code>--ascii-tabs-fret-background</code> to match the surface behind the Frets when embedding on a custom background.</p>
+    <p>Built-in storage is suspended while external geometry is active; the consumer owns persistence. Copy still exports ordinary ASCII through <code>format()</code>, without pixel positions or trailing empty Columns. <code>columnLayout = null</code> restores automatic ASCII layout and storage; <code>setDocument({ value })</code> also selects ASCII layout.</p>
+  </section>
+
   <section>
-    <h2>Per-note colors</h2>
+    <h2>Per-note colors and bold</h2>
     <p>With structured <code>value</code> data, replace a fret number with <code>{ fret: 3, color: '#b91c1c' }</code> to give that note its own CSS color. Numbers keep the default color; omitted or invalid colors fall back to it. CSS variables such as <code>var(--melody-color)</code> work too.</p>
+    <p>Set <code>bold: true</code> for bold text or <code>bold: false</code> for normal weight. Omit it to keep the existing bold default. Combine it with <code>color</code> or use it alone; font weight follows the note through edits, moves, duplicates and storage, and is discarded when copying ASCII.</p>
     <p>The color follows the note through edits, moves, duplicates, <code>change</code> events and storage. ASCII input has no color information, and copying exports plain text without colors.</p>
     <div class="variants">
       <div class="demo"><h3>Colored melody (editable)</h3><div class="live"><ascii-tabs id="colors-demo" theme="light" style="background: var(--ascii-tabs-paper); padding: 16px; border-radius: 8px">
   <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
 </ascii-tabs></div>
 <pre class="snippet">document.getElementById('colors-demo').value = [[
-  [{ fret: 0, color: '#b91c1c' }, null, null, null, 3, null],
+  [{ fret: 0, color: '#b91c1c', bold: true }, null, null, null, 3, null],
   [{ fret: 2, color: '#b91c1c' }, null, null, null, null, null],
   [{ fret: 3, color: 'royalblue' }, null, null, null, 2, null],
-  [5, null, null, null, null, null],
+  [{ fret: 5, bold: false }, null, null, null, null, null],
 ]];</pre></div>
     </div>
   </section>
@@ -479,11 +526,35 @@ json.addEventListener('input', () => {
     ],
   ];
   document.getElementById('colors-demo').value = [[
-    [{ fret: 0, color: '#b91c1c' }, null, null, null, 3, null],
+    [{ fret: 0, color: '#b91c1c', bold: true }, null, null, null, 3, null],
     [{ fret: 2, color: '#b91c1c' }, null, null, null, null, null],
     [{ fret: 3, color: 'royalblue' }, null, null, null, 2, null],
-    [5, null, null, null, null, null],
+    [{ fret: 5, bold: false }, null, null, null, null, null],
   ]];
+  const alignment = document.getElementById('alignment-demo');
+  const alignmentStatus = document.getElementById('alignment-status');
+  const resetAlignment = (positions = [84.5, 132, 201.25, 290]) => {
+    alignmentStatus.textContent = 'External layout: four fixed Columns, including the empty final Column. Click a String to edit.';
+    alignment.setDocument({
+      value: [[
+        [5, 7, null, null, null, null],
+        [null, null, null, null, 0, null],
+        [12, null, null, null, null, null],
+        [null, null, null, null, null, null],
+      ]],
+      columnLayout: [{ width: 640, positions }],
+    });
+  };
+  alignment.addEventListener('layoutoverflow', ({ detail }) => {
+    alignmentStatus.textContent = `layoutoverflow: ${detail.collisions.length} collision(s) in Tab ${detail.index + 1}. Centers stay fixed; recalculate the score spacing to resolve them.`;
+  });
+  document.getElementById('alignment-reset').addEventListener('click', () => resetAlignment());
+  document.getElementById('alignment-collisions').addEventListener('click', () => resetAlignment([84.5, 90, 96, 290]));
+  document.getElementById('alignment-ascii').addEventListener('click', () => {
+    alignment.columnLayout = null;
+    alignmentStatus.textContent = 'ASCII layout: automatic spacing, wrapping and trailing-Column trimming restored. Copy exports plain ASCII in either mode.';
+  });
+  resetAlignment();
   document.getElementById('messages-demo').messages = {
     hint: 'Tap a string, then type a fret.',
     copy: 'Copy as ASCII',

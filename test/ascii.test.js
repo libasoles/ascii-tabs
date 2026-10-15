@@ -169,7 +169,7 @@ test('note notation wraps using the displayed names and preserves labels', () =>
 
 
 test('format exports colored notes as plain frets with matching widths and notation', () => {
-  const colored = [col([1, { fret: 12, color: 'red' }], [2, { fret: 0 }]), col([1, 5])];
+  const colored = [col([1, { fret: 12, color: 'red', bold: false }], [2, { fret: 0 }]), col([1, 5])];
   const plain = [col([1, 12], [2, 0]), col([1, 5])];
   for (const notation of ['frets', 'letters', 'solfege']) {
     assert.equal(format(colored, { notation, width: 8 }), format(plain, { notation, width: 8 }));

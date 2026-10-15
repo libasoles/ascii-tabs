@@ -27,7 +27,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.4.1/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.5.0/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -40,7 +40,7 @@ Drag from an empty cell or a blank area of a Sheet to select notes inside a rect
 
 Pass the content as data through the `value` property. This is the preferred way to fill the element: no parsing, nothing ambiguous, and it is the same shape `value` and `change` give back.
 
-`value` is `(number|{ fret: number|null, color?: string, parenthesized?: boolean }|null)[][][]`: an array of Tabs, each an array of Columns, each Column 6 entries from String 1 to String 6, a Fret (0–24) or `null` for an empty String. A note with `parenthesized: true` is displayed and copied in parentheses; `fret: null` is allowed for an empty pair.
+`value` is `(number|{ fret: number|null, color?: string, bold?: boolean, parenthesized?: boolean }|null)[][][]`: an array of Tabs, each an array of Columns, each Column 6 entries from String 1 to String 6, a Fret (0–24) or `null` for an empty String. A note with `parenthesized: true` is displayed and copied in parentheses; `fret: null` is allowed for an empty pair.
 
 ```html
 <ascii-tabs id="song"></ascii-tabs>
@@ -82,7 +82,77 @@ song.addEventListener('change', e => { state = e.detail.value; save(state); });
 function load(next) { state = next; song.value = state; }
 ```
 
-### Per-note colors
+### Aligning with a score
+
+Use external geometry when a score renderer owns horizontal spacing. Update the
+content and geometry together, especially when the number of Columns changes:
+
+```js
+song.setDocument({
+  value: [[
+    [5, 7, null, null, null, null],
+    [null, null, null, null, 0, null],
+    [12, null, null, null, null, null],
+    [null, null, null, null, null, null],
+  ]],
+  columnLayout: [{ width: 640, positions: [84.5, 132, 201.25, 290] }],
+});
+```
+
+`columnLayout` has one `{ width, positions }` entry per Tab. Each `positions[c]`
+is the center of Column `c` in CSS pixels from the left edge of the String area
+(`.ascii-tabs-area`). `width` excludes labels, Sheet padding and tools. Align that
+area's origin with the score and translate score coordinates into CSS pixels.
+Labels occupy their own gutter. Frets, note names and parentheses are centered
+independently of their text width. Set `--ascii-tabs-fret-background` to match the
+surface behind the Frets; it defaults to `--ascii-tabs-sheet`.
+
+Widths must be finite and positive; positions must be finite, strictly increasing,
+within `[0, width]`, and match the logical Column count, including trailing empty
+Columns. A Tab with zero Columns uses `positions: []` and still shows six Strings.
+Invalid geometry or mismatched content throws a descriptive `TypeError` before
+changing state. Geometry is copied on assignment and retrieval.
+
+Each Tab stays in one Staff, with horizontal scrolling when needed and no automatic
+padding or wrapping. `value` and `change.detail.value` preserve all Columns.
+Editing, mobile input, selection and dragging retain their logical indices.
+Clicks and drop targets choose the nearest center within the String area; exact
+ties choose the earlier Column. Moving or duplicating Frets within existing
+Columns is allowed. Paste, duplication and group moves that exceed the available
+Columns are rejected in full. Navigation stops at the first/last Column; deleting
+Frets leaves their Columns in place. Add/delete Tab buttons are disabled, and
+`addTab()`/`removeTab()` do nothing: structure belongs to the consumer.
+
+Assign `song.columnLayout` to reposition existing Columns without resetting the
+cursor or typing. Assigning `song.value` while geometry is active requires the same
+Tab/Column counts; use `setDocument({ value, columnLayout })` to change both
+atomically. Programmatic assignments do not emit `change`. Properties may also be
+assigned before custom-element upgrade (supply both `value` and `columnLayout`).
+Built-in storage is suspended while external geometry is active: it neither loads
+nor overwrites the ASCII store. The consumer owns persistence.
+
+```js
+song.addEventListener('layoutoverflow', ({ detail }) => {
+  // { index, width, collisions }
+  // Recalculate score spacing, then provide new positions and width.
+  console.log(detail);
+});
+```
+
+`layoutoverflow` bubbles after rendering when displayed Frets overlap on a String
+or extend past the area's edges. Each collision has a zero-based `string`,
+`columns` indices and an `overlap` in CSS pixels; edge collisions also have
+`edge: 'left' | 'right'`. Identical reports are suppressed until geometry or
+collisions change. Centers never move automatically. Increasing only `width`
+does not separate existing centers: recalculate positions too.
+
+Set `song.columnLayout = null` to restore ASCII layout, wrapping, storage and
+editing. `setDocument({ value })` also selects ASCII layout. Copy still uses
+`format()` and exports ordinary ASCII with the chosen Spacing and notation;
+pixel positions and trailing empty Columns are not preserved in copied text.
+Geometry is never stored inside `Tab[]`.
+
+### Per-note colors and bold
 
 Use an object instead of a number to give a note its own CSS color:
 
@@ -94,6 +164,17 @@ song.value = [[
 ```
 
 Numbers still use the default color. Objects require a valid `fret` (0–24); omitted or invalid colors use the default. Colors are preserved in `value`, `change`, storage, edits, moves and duplicates. Returned objects are independent copies. Color applies only to the note, including while focused; string dashes keep their theme color. CSS variables such as `var(--melody-color)` work too.
+
+Set `bold: true` for bold text or `bold: false` for normal weight. Omit `bold` to keep the existing default (bold). You can combine it with `color`:
+
+```js
+song.value = [[
+  [{ fret: 3, bold: true, color: '#b91c1c' }, null, null, null, null, null],
+  [{ fret: 5, bold: false }, null, null, null, null, null],
+]];
+```
+
+`bold` accepts booleans only and follows the note through edits, moves, duplication, `value`, `change` and storage. Copying as ASCII discards font weight.
 
 Colors are available through structured data only. ASCII input has no color information, and copying or calling `format` exports plain text without colors.
 
@@ -129,7 +210,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.4.1/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.5.0/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."

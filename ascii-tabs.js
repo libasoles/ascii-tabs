@@ -366,6 +366,21 @@ ascii-tabs .ascii-tabs-input {
   border: 0; padding: 0; font-size: 16px; pointer-events: none;
 }
 ascii-tabs .ascii-tabs-probe { position: absolute; visibility: hidden; white-space: pre; }
+/* External geometry: labels occupy a gutter outside the String coordinates. */
+ascii-tabs .ascii-tabs-tab.ascii-tabs-positioned { overflow-x: auto; }
+ascii-tabs .ascii-tabs-positioned .ascii-tabs-staff { width: max-content; }
+ascii-tabs .ascii-tabs-positioned .ascii-tabs-line { display: flex; }
+ascii-tabs .ascii-tabs-positioned .ascii-tabs-label { flex: 0 0 2ch; }
+ascii-tabs .ascii-tabs-area { position: relative; display: inline-block; height: 1.5em; flex: none; }
+ascii-tabs .ascii-tabs-area::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  border-top: 1px solid var(--ascii-tabs-string); pointer-events: none;
+}
+ascii-tabs .ascii-tabs-area .ascii-tabs-cell {
+  position: absolute; top: 0; transform: translateX(-50%); min-width: 1ch; text-align: center;
+}
+ascii-tabs .ascii-tabs-area .ascii-tabs-fret { background: var(--ascii-tabs-fret-background, var(--ascii-tabs-sheet)); }
+ascii-tabs .ascii-tabs-area .ascii-tabs-mid { visibility: hidden; }
 `;
 
 function injectStyles() {
@@ -411,6 +426,7 @@ function normalizeValue(value) {
         else if (note && typeof note === 'object' && (isFret(note.fret) || (note.fret === null && note.parenthesized === true))) {
           out[s] = { fret: note.fret };
           if (typeof note.color === 'string') out[s].color = note.color;
+          if (typeof note.bold === 'boolean') out[s].bold = note.bold;
           if (note.parenthesized === true) out[s].parenthesized = true;
         }
       }
@@ -418,6 +434,23 @@ function normalizeValue(value) {
     }),
   );
   return tabs.length ? tabs : [[]];
+}
+
+// Layout is consumer-owned geometry in CSS pixels, never part of the Tab data.
+function normalizeColumnLayout(value, tabs) {
+  if (value === null) return null;
+  const fail = message => { throw new TypeError(`columnLayout: ${message}`); };
+  if (!Array.isArray(value) || value.length !== tabs.length) fail('expected one layout per Tab');
+  return Array.from(value, (entry, t) => {
+    if (!entry || !Number.isFinite(entry.width) || entry.width <= 0) fail(`Tab ${t}: width must be finite and positive`);
+    if (!Array.isArray(entry.positions) || entry.positions.length !== tabs[t].length) fail(`Tab ${t}: positions must match the ${tabs[t].length} logical Columns`);
+    const positions = Array.from(entry.positions, (x, c) => {
+      if (!Number.isFinite(x) || x < 0 || x > entry.width) fail(`Tab ${t}, Column ${c}: position must be finite and within [0, width]`);
+      if (c && x <= entry.positions[c - 1]) fail(`Tab ${t}, Column ${c}: positions must be strictly increasing`);
+      return x;
+    });
+    return { width: entry.width, positions };
+  });
 }
 
 async function copyText(text) {
@@ -459,6 +492,10 @@ const Base = typeof HTMLElement !== 'undefined' ? HTMLElement : class {};
 
 class AsciiTabs extends Base {
   #tabs = [[]];
+  #logicalLengths = [0]; // Explicit Columns, excluding ASCII #fit padding
+  #columnLayout = null;
+  #overflowFrame = null;
+  #overflowSignatures = [];
   #spacing = DEFAULT_SPACING;
   #capacity = DEFAULT_CAPACITY;
   #staves = [];
@@ -484,17 +521,51 @@ class AsciiTabs extends Base {
   #declared = null; // parts the consumer wrote as children, null for the default composition
 
   get value() {
-    return this.#tabs.map(tab => tab.slice(0, lastUsed(tab) + 1).map(column => column.map(cloneNote)));
+    return this.#tabs.map(tab => (this.#columnLayout ? tab : tab.slice(0, lastUsed(tab) + 1)).map(column => column.map(cloneNote)));
   }
 
   set value(value) {
+    this.setDocument({ value, columnLayout: this.#columnLayout });
+  }
+
+  get columnLayout() {
+    return this.#columnLayout?.map(({ width, positions }) => ({ width, positions: [...positions] })) ?? null;
+  }
+
+  set columnLayout(value) {
+    const tabs = this.#tabs.map((tab, t) => Array.from({ length: this.#logicalLengths[t] }, (_, c) => tab[c] ?? emptyColumn()));
+    const geometry = normalizeColumnLayout(value, tabs);
+    if (this.#drag) this.#endDrag({ pointerId: this.#drag.pointerId }, true);
+    this.#tabs = tabs;
+    this.#columnLayout = geometry;
+    this.#overflowSignatures = [];
+    if (this.#cur && !this.#inBounds(this.#cur.t, this.#cur.c, this.#cur.s)) {
+      this.#cur = null;
+      this.#endTyping();
+    }
+    this.#selection = this.#selection.filter(p => this.#inBounds(p.t, p.c, p.s));
+    this.#render();
+  }
+
+  // Validate the entire document before committing either content or geometry.
+  // Like the value setter, programmatic updates do not emit change.
+  setDocument({ value, columnLayout = null }) {
+    if (columnLayout !== null && (!Array.isArray(value) || !value.length ||
+      Array.from(value).some(tab => !Array.isArray(tab) || Array.from(tab).some(column => !Array.isArray(column))))) {
+      throw new TypeError('columnLayout: value must contain Tabs of logical Columns');
+    }
     const tabs = normalizeValue(value);
     if (!tabs) return;
+    const geometry = normalizeColumnLayout(columnLayout, tabs);
+    if (this.#drag) this.#endDrag({ pointerId: this.#drag.pointerId }, true);
     this.#valueSet = true;
     this.#tabs = tabs;
+    this.#logicalLengths = tabs.map(tab => tab.length);
+    this.#columnLayout = geometry;
+    this.#overflowSignatures = [];
     this.#selection = [];
     this.#cur = null;
-    this.#draft = null;
+    this.#endTyping();
     if (this.#initialized) {
       this.#buildSheets();
       this.#render();
@@ -618,7 +689,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'readonly', 'spacing', 'labels', 'notation', 'tools', 'variant', 'theme', 'messages']) {
+    for (const name of ['value', 'columnLayout', 'readonly', 'spacing', 'labels', 'notation', 'tools', 'variant', 'theme', 'messages']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -630,6 +701,7 @@ class AsciiTabs extends Base {
       if (!this.#valueSet) {
         const pres = [...this.querySelectorAll('pre')];
         if (pres.length) this.#tabs = pres.map(pre => parse(pre.textContent));
+        this.#logicalLengths = this.#tabs.map(tab => tab.length);
       }
       // Storage is data, not interface: a root with only that part still gets the default composition
       const parts = [...this.children].filter(isPart).map(readPart);
@@ -657,6 +729,8 @@ class AsciiTabs extends Base {
   }
 
   disconnectedCallback() {
+    cancelAnimationFrame(this.#overflowFrame);
+    this.#overflowFrame = null;
     removeEventListener('pointermove', this.#onPointerMove);
     removeEventListener('pointerup', this.#onPointerUp);
     removeEventListener('pointercancel', this.#onPointerCancel);
@@ -787,6 +861,7 @@ class AsciiTabs extends Base {
   // --- Layout ---------------------------------------------------------------
 
   #measure(force = false) {
+    this.#scheduleOverflow();
     const tabEl = this.#tabEls[0];
     if (!tabEl || !this.#probe) return;
     const charWidth = this.#probe.getBoundingClientRect().width / 10;
@@ -802,6 +877,7 @@ class AsciiTabs extends Base {
   // Always leave room after the last Fret; a new Staff appears when you write past the end
   #fit(t) {
     const tab = this.#tabs[t];
+    if (this.#columnLayout) return (this.#staves[t] = [[0, tab.length]]);
     const need = Math.max(lastUsed(tab) + (this.readonly ? 1 : 2), this.#cur && this.#cur.t === t ? this.#cur.c + 1 : 0, 1);
     while (tab.length < need) tab.push(emptyColumn());
     tab.length = need;
@@ -824,6 +900,8 @@ class AsciiTabs extends Base {
     if (!this.#initialized) return;
     this.#tabEls.forEach((el, t) => {
       const tab = this.#tabs[t];
+      const geometry = this.#columnLayout?.[t];
+      el.classList.toggle('ascii-tabs-positioned', Boolean(geometry));
       const lead = '-'.repeat(leadingDashes(this.#spacing));
       const trail = '-'.repeat(this.#spacing - lead.length);
       let html = '';
@@ -831,15 +909,16 @@ class AsciiTabs extends Base {
         // Dashes after the last Column, so every Staff ends flush with the Sheet
         let used = 0;
         for (let c = start; c < end; c++) used += columnWidth(tab[c], this.#spacing, this.notation);
-        const fill = visualDashes(this.#capacity - used);
+        const fill = geometry ? '' : visualDashes(this.#capacity - used);
         html += '<div class="ascii-tabs-staff">';
         for (let s = 0; s < STRING_COUNT; s++) {
           html += '<span class="ascii-tabs-line">';
           if (this.labels !== 'none') html += `<span class="ascii-tabs-label">${LABELS[this.labels][s]}</span>`;
+          if (geometry) html += `<span class="ascii-tabs-area" data-t="${t}" data-s="${s}" style="width:${geometry.width}px">`;
           for (let c = start; c < end; c++) {
             const isCur = this.#cur && this.#cur.t === t && this.#cur.c === c && this.#cur.s === s;
             const fret = tab[c][s];
-            const digits = columnDigits(tab[c], this.notation);
+            const digits = geometry ? fretText(tab[c][s], s, this.notation).length : columnDigits(tab[c], this.notation);
             const text = fretText(fret, s, this.notation);
             const selected = !this.#drag?.selecting && this.#selection.some(p => p.t === t && p.c === c && p.s === s);
             const cls = `ascii-tabs-cell${isCur ? ' ascii-tabs-cur' : ''}${fret !== null ? ' ascii-tabs-has' : ''}${selected ? ' ascii-tabs-selected' : ''}`;
@@ -847,8 +926,10 @@ class AsciiTabs extends Base {
               fret === null
                 ? `<span class="ascii-tabs-mid ascii-tabs-string" aria-hidden="true">-</span><span class="ascii-tabs-caret" aria-hidden="true"> </span>${visualDashes(digits - 1)}`
                 : `<span class="ascii-tabs-fret">${fret.fret === null && fret.parenthesized ? '(<span class="ascii-tabs-caret" aria-hidden="true"></span>)' : text}</span>${visualDashes(digits - text.length)}`;
-            html += `<span class="${cls}" data-t="${t}" data-c="${c}" data-s="${s}">${visualDashes(lead.length)}${body}${visualDashes(trail.length)}</span>`;
+            const position = geometry ? ` style="left:${geometry.positions[c]}px"` : '';
+            html += `<span class="${cls}" data-t="${t}" data-c="${c}" data-s="${s}"${position}>${geometry ? '' : visualDashes(lead.length)}${body}${geometry ? '' : visualDashes(trail.length)}</span>`;
           }
+          if (geometry) html += '</span>';
           html += `${fill}</span>`;
         }
         html += '</div>';
@@ -857,14 +938,51 @@ class AsciiTabs extends Base {
       // Assign through the CSSOM: consumer colors never become HTML or extra declarations.
       for (const cell of el.querySelectorAll('.ascii-tabs-has')) {
         const note = tab[+cell.dataset.c][+cell.dataset.s];
-        if (note.color) cell.querySelector('.ascii-tabs-fret').style.color = note.color;
+        const fret = cell.querySelector('.ascii-tabs-fret');
+        if (note.color) fret.style.color = note.color;
+        if (typeof note.bold === 'boolean') fret.style.fontWeight = note.bold ? '700' : '400';
       }
       const empty = lastUsed(tab) < 0;
       for (const del of this.#sheetEls[t]?.querySelectorAll('.ascii-tabs-delete') ?? []) {
-        del.disabled = this.#tabs.length === 1 && empty && !del._forceEnabled;
+        del.disabled = Boolean(this.#columnLayout) || (this.#tabs.length === 1 && empty && !del._forceEnabled);
       }
     });
     this.#placeInput();
+    for (const add of this.querySelectorAll('.ascii-tabs-add')) add.disabled = Boolean(this.#columnLayout);
+    this.#scheduleOverflow();
+  }
+
+  #scheduleOverflow() {
+    if (!this.#columnLayout || this.#overflowFrame !== null || !this.isConnected) return;
+    this.#overflowFrame = requestAnimationFrame(() => {
+      this.#overflowFrame = null;
+      if (!this.#columnLayout) return;
+      // Measure displayed text (including note names, parentheses and bold) in CSS pixels.
+      const reports = this.#columnLayout.map(({ width, positions }, index) => {
+        const collisions = [];
+        for (let s = 0; s < STRING_COUNT; s++) {
+          let previous = null;
+          for (const cell of this.#tabEls[index]?.querySelectorAll(`.ascii-tabs-has[data-s="${s}"]`) ?? []) {
+            const c = +cell.dataset.c;
+            const areaWidth = cell.parentElement.getBoundingClientRect().width;
+            if (!areaWidth) continue;
+            const half = cell.querySelector('.ascii-tabs-fret').getBoundingClientRect().width * width / areaWidth / 2;
+            const left = positions[c] - half, right = positions[c] + half;
+            if (left < 0) collisions.push({ string: s, columns: [c], edge: 'left', overlap: -left });
+            if (right > width) collisions.push({ string: s, columns: [c], edge: 'right', overlap: right - width });
+            if (previous && left < previous.right) collisions.push({ string: s, columns: [previous.c, c], overlap: previous.right - left });
+            if (!previous || right > previous.right) previous = { c, right };
+          }
+        }
+        return { index, width, collisions };
+      });
+      for (const report of reports) {
+        const signature = JSON.stringify(report);
+        const changed = this.#overflowSignatures[report.index] !== signature;
+        this.#overflowSignatures[report.index] = signature;
+        if (changed && report.collisions.length) this.dispatchEvent(new CustomEvent('layoutoverflow', { detail: report, bubbles: true }));
+      }
+    });
   }
 
   // Keep the hidden input next to the focused cell so phones scroll to it
@@ -886,27 +1004,37 @@ class AsciiTabs extends Base {
 
   // Stored Tabs win over <pre> and `value`; an empty or unreadable store falls back to them
   #load() {
+    if (this.#columnLayout) return;
     try {
       const tabs = readStored(localStorage.getItem(this.#storageKey));
-      if (tabs) this.#tabs = tabs;
+      if (tabs) {
+        this.#tabs = tabs;
+        this.#logicalLengths = tabs.map(tab => tab.length);
+      }
     } catch {}
   }
 
   #save() {
-    if (!this.#storageKey) return;
+    if (!this.#storageKey || this.#columnLayout) return;
     try {
       localStorage.setItem(this.#storageKey, serializeStored(this.#tabs.map(tab => tab.slice(0, lastUsed(tab) + 1))));
     } catch {}
   }
 
   #setFret(t, c, s, fret) {
+    if (this.#columnLayout && !this.#inBounds(t, c, s)) return false;
     const tab = this.#tabs[t];
     while (tab.length <= c) tab.push(emptyColumn());
     const previous = tab[c][s];
     if (previous === fret || (previous && fret && typeof previous === 'object' && typeof fret === 'object'
-      && previous.fret === fret.fret && previous.color === fret.color && previous.parenthesized === fret.parenthesized)) return false;
+      && previous.fret === fret.fret && previous.color === fret.color && previous.bold === fret.bold && previous.parenthesized === fret.parenthesized)) return false;
     tab[c][s] = cloneNote(fret);
+    this.#logicalLengths[t] = Math.max(this.#logicalLengths[t], c + 1);
     return true;
+  }
+
+  #inBounds(t, c, s) {
+    return Boolean(this.#tabs[t]) && c >= 0 && c < this.#tabs[t].length && s >= 0 && s < STRING_COUNT;
   }
 
   #endTyping() {
@@ -915,6 +1043,10 @@ class AsciiTabs extends Base {
   }
 
   #goTo(t, c, s, keepSelection = false) {
+    if (this.#columnLayout) {
+      if (!this.#tabs[t]?.length) return;
+      c = Math.min(c, this.#tabs[t].length - 1);
+    }
     if (!keepSelection) this.#selection = [];
     this.#endTyping();
     this.#cur = { t, c: Math.max(0, c), s };
@@ -932,6 +1064,7 @@ class AsciiTabs extends Base {
       return this.#transferSelection(this.#selection[0].t, Math.max(...columns) - Math.min(...columns) + 1, 0, true);
     }
     const { t, c, s } = this.#cur;
+    if (this.#columnLayout && !this.#inBounds(t, c + 1, s)) return;
     const column = [...(this.#tabs[t][c] ?? emptyColumn())];
     let changed = false;
     for (let string = 0; string < STRING_COUNT; string++) {
@@ -1101,6 +1234,7 @@ class AsciiTabs extends Base {
     if (lastUsed(columns) < 0) return;
     e.preventDefault();
     const { t, c } = this.#cur;
+    if (this.#columnLayout && c + columns.length > this.#tabs[t].length) return;
     const selected = [];
     let changed = false;
     columns.forEach((column, offset) => column.forEach((fret, s) => {
@@ -1117,6 +1251,7 @@ class AsciiTabs extends Base {
   // Snapshot before clearing: overlapping moves preserve every selected Fret.
   #transferSelection(t, dc, ds, duplicate = false) {
     const notes = this.#selection.map(p => ({ ...p, fret: this.#tabs[p.t][p.c][p.s] }));
+    if (this.#columnLayout && notes.some(p => !this.#inBounds(t, p.c + dc, p.s + ds))) return false;
     if (notes.some(p => p.c + dc < 0 || p.s + ds < 0 || p.s + ds >= STRING_COUNT)) return false;
     if (!duplicate && notes.every(p => p.t === t) && dc === 0 && ds === 0) return false;
     let changed = false;
@@ -1134,11 +1269,24 @@ class AsciiTabs extends Base {
 
   // --- Pointer --------------------------------------------------------------
 
-  #cellAt = (x, y) => document.elementFromPoint(x, y)?.closest('.ascii-tabs-cell');
+  #cellAt = (x, y) => {
+    const target = document.elementFromPoint(x, y);
+    if (!this.#columnLayout) return target?.closest('.ascii-tabs-cell');
+    const area = target?.closest('.ascii-tabs-area');
+    if (!area || !this.contains(area)) return null;
+    const t = +area.dataset.t;
+    const rect = area.getBoundingClientRect();
+    const { width, positions } = this.#columnLayout[t];
+    const local = (x - rect.left) * width / rect.width;
+    if (local < 0 || local > width || y < rect.top || y > rect.bottom || !positions.length) return null;
+    let nearest = 0;
+    for (let c = 1; c < positions.length; c++) if (Math.abs(positions[c] - local) < Math.abs(positions[nearest] - local)) nearest = c;
+    return area.querySelector(`[data-c="${nearest}"]`);
+  };
   #position = el => ({ t: +el.dataset.t, c: +el.dataset.c, s: +el.dataset.s });
 
   #onPointerDown = e => {
-    const cell = e.target.closest('.ascii-tabs-cell');
+    const cell = this.#columnLayout ? this.#cellAt(e.clientX, e.clientY) : e.target.closest('.ascii-tabs-cell');
     const sheet = e.target.closest('.ascii-tabs-sheet');
     if (!sheet || e.target.closest('.ascii-tabs-tools') || e.button !== 0 || this.readonly) return;
     e.preventDefault(); // keep focus on the hidden input
@@ -1286,9 +1434,10 @@ class AsciiTabs extends Base {
   }
 
   addTab() {
-    if (this.readonly) return;
+    if (this.readonly || this.#columnLayout) return;
     this.#endTyping();
     this.#tabs.push([]);
+    this.#logicalLengths.push(0);
     this.#buildSheets();
     if (this.#sheetsEl) {
       this.#goTo(this.#tabs.length - 1, 0, 0);
@@ -1300,13 +1449,18 @@ class AsciiTabs extends Base {
   // More than one Tab: remove it. A single Tab is cleared instead, and only when it has content
   removeTab(index) {
     const t = Number(index);
-    if (this.readonly || !this.#tabs[t]) return;
+    if (this.readonly || this.#columnLayout || !this.#tabs[t]) return;
     if (this.#tabs.length === 1 && lastUsed(this.#tabs[0]) < 0) return;
     this.#endTyping();
     this.#cur = null;
     this.#selection = [];
-    if (this.#tabs.length > 1) this.#tabs.splice(t, 1);
-    else this.#tabs[0] = [];
+    if (this.#tabs.length > 1) {
+      this.#tabs.splice(t, 1);
+      this.#logicalLengths.splice(t, 1);
+    } else {
+      this.#tabs[0] = [];
+      this.#logicalLengths[0] = 0;
+    }
     this.#buildSheets();
     this.#emitChange();
   }

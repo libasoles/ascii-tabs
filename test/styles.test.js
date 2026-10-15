@@ -130,3 +130,27 @@ test('note colors accept CSS variables and invalid values cannot inject markup o
     assert.equal(result.invalidFret, null);
   });
 });
+
+
+test('per-note bold accepts booleans, preserves the default and combines with colors', async () => {
+  await withPage('<ascii-tabs></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    const result = await page.$eval('ascii-tabs', el => {
+      el.value = [[[
+        { fret: 3, bold: true, color: 'royalblue' },
+        { fret: 5, bold: false },
+        7, { fret: 9 }, { fret: 12, bold: 'false' }, null,
+      ]]];
+      return {
+        weights: [...el.querySelectorAll('.ascii-tabs-fret')].map(note => getComputedStyle(note).fontWeight),
+        color: getComputedStyle(el.querySelector('.ascii-tabs-fret')).color,
+        invalid: el.value[0][0][4],
+      };
+    });
+    assert.deepEqual(result.weights, ['700', '400', '700', '700', '700']);
+    assert.equal(result.color, 'rgb(65, 105, 225)');
+    assert.deepEqual(result.invalid, { fret: 12 });
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="1"]');
+    assert.equal(await page.$eval('.ascii-tabs-cur .ascii-tabs-fret', el => getComputedStyle(el).fontWeight), '400');
+  });
+});
