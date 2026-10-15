@@ -8,6 +8,15 @@ const col = (...frets) => {
   return c;
 };
 
+test('parenthesized frets and empty pairs survive ASCII round trips and notation changes', () => {
+  const tab = [col([1, { fret: 12, parenthesized: true }], [2, 3]), col([1, { fret: null, parenthesized: true }]), col([1, 7])];
+  const ascii = format(tab);
+  assert.equal(ascii.split('\n')[0], '1 -(12)--()--7-');
+  assert.deepEqual(parse(ascii), tab);
+  assert.match(format(tab, { notation: 'letters' }), /\(E\)/);
+  assert.match(format(tab, { notation: 'solfege' }), /\(mi\)/);
+});
+
 test('format writes number labels with spacing 2', () => {
   const out = format([col([3, 3]), col([3, 5])]);
   assert.equal(out.split('\n')[2], '3 -3--5-');

@@ -40,7 +40,7 @@ Drag from an empty cell or a blank area of a Sheet to select notes inside a rect
 
 Pass the content as data through the `value` property. This is the preferred way to fill the element: no parsing, nothing ambiguous, and it is the same shape `value` and `change` give back.
 
-`value` is `(number|{ fret: number, color?: string }|null)[][][]`: an array of Tabs, each an array of Columns, each Column 6 entries from String 1 to String 6, a Fret (0–24) or `null` for an empty String.
+`value` is `(number|{ fret: number|null, color?: string, parenthesized?: boolean }|null)[][][]`: an array of Tabs, each an array of Columns, each Column 6 entries from String 1 to String 6, a Fret (0–24) or `null` for an empty String. A note with `parenthesized: true` is displayed and copied in parentheses; `fret: null` is allowed for an empty pair.
 
 ```html
 <ascii-tabs id="song"></ascii-tabs>
@@ -96,6 +96,10 @@ song.value = [[
 Numbers still use the default color. Objects require a valid `fret` (0–24); omitted or invalid colors use the default. Colors are preserved in `value`, `change`, storage, edits, moves and duplicates. Returned objects are independent copies. Color applies only to the note, including while focused; string dashes keep their theme color. CSS variables such as `var(--melody-color)` work too.
 
 Colors are available through structured data only. ASCII input has no color information, and copying or calling `format` exports plain text without colors.
+
+Type `(` (Shift plus the opening-parenthesis key for your keyboard layout) in a cell to wrap its note in parentheses. An empty cell gets an empty pair with the caret inside, ready for a fret number. Repeating the shortcut keeps a single pair. Parentheses survive storage, ASCII copy/paste, and notation changes.
+
+To erase a parenthesized note, press Delete/Supr: this clears the entire cell, including the parentheses. Backspace removes digits inside the parentheses and leaves `()` when the last digit is erased. Escape restores the cell's value before the current edit, so it also undoes parentheses just added. There is currently no shortcut to remove only the parentheses while keeping the note.
 
 If all you have is ASCII text, put it in a `<pre>` instead (see below).
 
@@ -262,11 +266,12 @@ Switch to `frets` before copying when you need to paste the result back.
 
 ## String labels
 
-Strings are labelled `1`–`6` by default, on screen and in copied text. `labels="notes"` names them in standard tuning (`e B G D A E`, String 1 to 6). Parsing accepts both styles whatever the attribute says.
+Strings are labelled `1`–`6` by default, on screen and in copied text. `labels="notes"` names them in standard tuning (`e B G D A E`, String 1 to 6). `labels="none"` hides the labels and uses their space for Columns. This also applies to copied text. The `labels` property accepts `"numbers"`, `"notes"`, or `"none"`; other values fall back to numbers. Parsing accepts all three styles whatever the attribute says.
 
 ```html
 <ascii-tabs></ascii-tabs>                  <!-- 1 -3--5- -->
 <ascii-tabs labels="notes"></ascii-tabs>   <!-- e|-3--5- -->
+<ascii-tabs labels="none"></ascii-tabs>    <!-- -3--5- -->
 ```
 
 ## Tool position

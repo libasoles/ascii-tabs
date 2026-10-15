@@ -6,6 +6,47 @@ import puppeteer from 'puppeteer';
 
 const root = new URL('../', import.meta.url);
 
+test('opening parenthesis wraps a note and edits inside an empty pair, preserving storage and Escape', async () => {
+  await withPage('<ascii-tabs><ascii-tabs-storage key="parentheses-test"></ascii-tabs-storage></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => { el.value = [[[{ fret: 12, color: 'red' }, null, null, null, null, null]]]; });
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="0"]');
+    const open = async () => {
+      await page.keyboard.down('Shift');
+      await page.keyboard.press('Digit9');
+      await page.keyboard.up('Shift');
+    };
+    await open();
+    await open();
+    assert.equal(await page.$eval('.ascii-tabs-cur .ascii-tabs-fret', el => el.textContent), '(12)');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0][0]), { fret: 12, color: 'red', parenthesized: true });
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0][0]), { fret: 12, color: 'red' });
+    await open();
+    await page.keyboard.press('ArrowDown');
+    await open();
+    assert.equal(await page.$eval('.ascii-tabs-cur .ascii-tabs-fret', el => el.textContent), '()');
+    assert.equal(await page.$eval('.ascii-tabs-cur .ascii-tabs-fret .ascii-tabs-caret', el => getComputedStyle(el).display), 'inline');
+    await page.keyboard.type('24');
+    assert.equal(await page.$eval('.ascii-tabs-cur .ascii-tabs-fret', el => el.textContent), '(24)');
+    await page.keyboard.press('Backspace');
+    assert.equal(await page.$eval('.ascii-tabs-cur .ascii-tabs-fret', el => el.textContent), '(2)');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.$eval('ascii-tabs', el => el.value[0][0][1]), null);
+    await open();
+    await page.keyboard.type('7');
+    await page.keyboard.press('ArrowRight');
+    await page.reload();
+    await page.waitForSelector('.ascii-tabs-fret');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0].slice(0, 2)), [
+      { fret: 12, color: 'red', parenthesized: true }, { fret: 7, parenthesized: true },
+    ]);
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="1"]');
+    await page.keyboard.press('Delete');
+    assert.equal(await page.$eval('ascii-tabs', el => el.value[0][0][1]), null);
+  });
+});
+
 async function selectNotes(page) {
   const bounds = await page.$eval('ascii-tabs', el => {
     const start = el.querySelector('.ascii-tabs-cell[data-c="0"][data-s="5"]').getBoundingClientRect();
