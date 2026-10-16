@@ -1161,8 +1161,27 @@ class AsciiTabs extends Base {
     if (changed) this.#emitChange();
   }
 
+  #toggleBold() {
+    let changed = false;
+    for (const { t, c, s } of this.#selection.length ? this.#selection : [this.#cur]) {
+      const note = this.#tabs[t][c]?.[s];
+      if (note == null) continue;
+      const next = typeof note === 'object' ? { ...note } : { fret: note };
+      next.bold = note.bold === false;
+      if (this.#setFret(t, c, s, next)) changed = true;
+    }
+    if (!changed) return;
+    this.#endTyping();
+    this.#render();
+    this.#emitChange();
+  }
+
   #onKeyDown = e => {
     if (!this.#cur || this.readonly) return;
+    if (e.key.toLowerCase() === 'b' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      return this.#toggleBold();
+    }
     if (this.#selection.length && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
       e.preventDefault();
       return copyText(this.#selectionText());

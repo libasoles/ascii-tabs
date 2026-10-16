@@ -210,6 +210,53 @@ for (const modifier of ['Meta', 'Alt']) {
   });
 }
 
+test('b toggles selected notes individually, preserving metadata, selection and storage', async () => {
+  await withPage(selectionMarkup, async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    const columns = [
+      [0, { fret: 5, bold: false, color: 'red', parenthesized: true }, null, null, null, null],
+      [{ fret: 7, bold: true }, null, null, null, null, null],
+      [null, 12, null, null, null, null],
+      [null, null, 9, null, null, null],
+    ];
+    await page.$eval('ascii-tabs', (el, columns) => {
+      el.value = [columns];
+      window.changes = [];
+      el.addEventListener('change', e => window.changes.push(e.detail.value));
+    }, columns);
+    await selectNotes(page);
+    await page.keyboard.press('b');
+    const toggled = [
+      [{ fret: 0, bold: false }, { fret: 5, bold: true, color: 'red', parenthesized: true }, null, null, null, null],
+      [{ fret: 7, bold: false }, null, null, null, null, null],
+      [null, { fret: 12, bold: false }, null, null, null, null],
+      columns[3],
+    ];
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0]), toggled);
+    assert.equal(await page.$$eval('.ascii-tabs-selected', cells => cells.length), 4);
+    assert.deepEqual(await page.$$eval('.ascii-tabs-selected .ascii-tabs-fret', frets => frets.map(el => getComputedStyle(el).fontWeight)), ['400', '400', '700', '400']);
+    assert.deepEqual(await page.evaluate(() => window.changes), [[toggled]]);
+    await page.keyboard.press('b');
+    assert.deepEqual(await page.$$eval('.ascii-tabs-selected .ascii-tabs-fret', frets => frets.map(el => getComputedStyle(el).fontWeight)), ['700', '700', '400', '700']);
+    await page.reload();
+    await page.waitForSelector('.ascii-tabs-cell');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0][1]), columns[0][1]);
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="0"]');
+    await page.keyboard.press('b');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0][0]), { fret: 0, bold: false });
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="2"]');
+    await page.keyboard.press('b');
+    assert.equal(await page.$eval('ascii-tabs', el => el.value[0][0][2]), null);
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="0"]');
+    await page.keyboard.down('Control');
+    await page.keyboard.press('b');
+    await page.keyboard.up('Control');
+    await page.$eval('ascii-tabs', el => { el.readonly = true; });
+    await page.keyboard.press('b');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0][0]), { fret: 0, bold: false });
+  });
+});
+
 test('moving selected notes preserves overlaps and moves the group across strings', async () => {
   await withPage(selectionMarkup, async page => {
     await seedSelection(page);
