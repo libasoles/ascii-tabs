@@ -12,6 +12,10 @@ _Avoid_: Tablature (in code), song
 One moment in a Tab: for each String, either a Fret or nothing.
 _Avoid_: Beat, time, step, slot
 
+**Annotation**:
+Text attached to a Column in a Tab, such as a chord name or a playing instruction.
+_Avoid_: Staff header, row text
+
 **String**:
 One of the six guitar strings, numbered 1 (highest pitch) to 6 (lowest).
 _Avoid_: Line, cuerda

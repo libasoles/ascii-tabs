@@ -332,6 +332,36 @@ editor.columnLayout = null;</pre>
   </section>
 
   <section>
+    <h2 id="column-annotations">Column annotations</h2>
+    <p>Attach text or HTML to logical Columns with <code>annotations</code>: one array per Tab of <code>{ column, text }</code> or <code>{ column, html, text? }</code> entries (indices start at zero). Change the Spacing slider or resize the page: annotations follow their Columns across Staves. Colliding content stacks above the Strings with enough room to avoid overlap.</p>
+    <p>This is optional: without annotations, the existing layout and editing stay the same. Each anchor must reference an existing Column in <code>value</code>, including explicitly supplied empty Columns. <code>text</code> is literal and supports newlines; <code>html</code> renders markup such as <code>&lt;strong&gt;</code>, <code>&lt;sup&gt;</code> and <code>&lt;br&gt;</code>. HTML is inserted as supplied: use trusted or sanitized markup. Size changes in normal flow HTML, such as loaded images, update the reserved space. Update content with <code>element.annotations = [[{ column: 1, html: '&lt;strong&gt;Dm&lt;/strong&gt;' }]]</code>, or clear it with <code>element.annotations = null</code>. Moving Frets leaves annotations attached to their original Columns.</p>
+    <p>With both fields, <code>html</code> controls the display and <code>text</code> supplies the ASCII fallback. Browser copy extracts text from HTML when no fallback is supplied, preserving line breaks. Calling <code>format()</code> outside a browser requires the <code>text</code> fallback for HTML annotations.</p>
+    <p><code>setDocument({ value, annotations, columnLayout })</code> validates and updates the document together; omitting <code>annotations</code> clears them. Setting <code>value</code> alone preserves existing annotations and requires their anchors to remain valid. Keep annotations in your own state for persistence; built-in storage contains notes. Whole-Tab copy includes aligned annotations; selected-note copy keeps the usual ASCII. To import copied text, remove annotation lines first.</p>
+    <div class="variants">
+      <div class="demo"><h3>Chord annotations</h3><div class="live"><ascii-tabs id="annotations-demo" labels="notes" spacing="6">
+  <ascii-tabs-spacing></ascii-tabs-spacing>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs></div>
+        <pre class="snippet">const chords = document.getElementById('annotations-demo');
+chords.setDocument({
+  value: [[
+    [null, null, null, null, null, null],
+    [1, 3, 2, 0, null, null],
+    [1, 3, 2, 3, null, null],
+    [1, 3, 2, null, 0, null],
+  ]],
+  annotations: [[
+    { column: 0, text: 'RE MENOR' },
+    { column: 1, html: '&lt;strong&gt;Dm&lt;/strong&gt;&lt;sup&gt;*&lt;/sup&gt;', text: 'Dm*' },
+    { column: 2, text: 'Dm/F*' },
+    { column: 3, text: 'Dm/A' },
+  ]],
+});</pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <h2>String labels</h2>
     <p>Numbers by default; <code>labels="notes"</code> names the Strings in standard tuning, on screen and in copied text.</p>
     <div class="variants">
@@ -531,6 +561,21 @@ json.addEventListener('input', () => {
     [{ fret: 3, color: 'royalblue' }, null, null, null, 2, null],
     [{ fret: 5, bold: false }, null, null, null, null, null],
   ]];
+  document.getElementById('annotations-demo').setDocument({
+    value: [[
+      [null, null, null, null, null, null],
+      [1, 3, 2, 0, null, null],
+      [1, 3, 2, 3, null, null],
+      [1, 3, 2, null, 0, null],
+    ]],
+    annotations: [[
+      { column: 0, text: 'RE MENOR' },
+      { column: 1, html: '<strong>Dm</strong><sup>*</sup>', text: 'Dm*' },
+      { column: 2, text: 'Dm/F*' },
+      { column: 3, text: 'Dm/A' },
+    ]],
+  });
+
   const alignment = document.getElementById('alignment-demo');
   const alignmentStatus = document.getElementById('alignment-status');
   const resetAlignment = (positions = [84.5, 132, 201.25, 290]) => {

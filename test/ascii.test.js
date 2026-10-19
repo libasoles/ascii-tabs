@@ -8,6 +8,41 @@ const col = (...frets) => {
   return c;
 };
 
+test('Column annotations follow Spacing, notation and Staff breaks in ASCII', () => {
+  const tab = [col([1, 1]), col([1, 12]), col([1, 3])];
+  for (const spacing of [1, 2, 6]) {
+    for (const notation of ['frets', 'letters', 'solfege']) {
+      const options = { spacing, notation, labels: 'notes', annotations: [{ column: 2, text: 'Dm/A' }] };
+      const lines = format(tab, options).split('\n');
+      const plain = format(tab, { spacing, notation, labels: 'notes' }).split('\n')[0];
+      const third = format(tab.slice(0, 2), { spacing, notation, labels: 'notes' }).split('\n')[0].length + Math.ceil(spacing / 2);
+      assert.equal(lines[0].indexOf('Dm/A'), third);
+      assert.equal(lines[1], plain);
+    }
+  }
+  const blocks = format(tab, { width: 6, annotations: [{ column: 2, text: 'Dm/A' }] }).split('\n\n');
+  assert.equal(blocks.length, 3);
+  assert.equal(blocks[0].split('\n').length, 6);
+  assert.equal(blocks[2].split('\n')[0], '   Dm/A');
+  assert.equal(format(tab, { annotations: [] }), format(tab));
+});
+
+test('HTML annotation ASCII export uses the explicit text fallback without a DOM', () => {
+  const tab = [col([1, 1])];
+  const annotations = [{ column: 0, html: '<strong>Dm</strong><sup>*</sup>', text: 'Dm*' }];
+  assert.equal(format(tab, { annotations }), format(tab, { annotations: [{ column: 0, text: 'Dm*' }] }));
+  assert.throws(() => format(tab, { annotations: [{ column: 0, html: '<b>Dm</b>' }] }), /text fallback/);
+});
+
+test('ASCII annotations stack collisions and preserve annotated empty Columns', () => {
+  const tab = [col([1, 1]), col()];
+  const annotations = [{ column: 1, text: 'Dm/F*' }, { column: 0, text: 'RE MENOR' }, { column: 0, text: 'Intro\nVerse' }];
+  const lines = format(tab, { annotations }).split('\n');
+  assert.deepEqual(lines.slice(0, 4), ['   RE MENOR', '   Intro', '   Verse', '      Dm/F*']);
+  assert.equal(lines[4], '1 -1----');
+  assert.throws(() => format(tab, { annotations: [{ column: 2, text: 'invalid' }] }), TypeError);
+});
+
 test('parenthesized frets and empty pairs survive ASCII round trips and notation changes', () => {
   const tab = [col([1, { fret: 12, parenthesized: true }], [2, 3]), col([1, { fret: null, parenthesized: true }]), col([1, 7])];
   const ascii = format(tab);

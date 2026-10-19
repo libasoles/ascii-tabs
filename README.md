@@ -34,7 +34,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.7.0/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.8.0/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -81,6 +81,76 @@ song.value = state;
 song.addEventListener('change', e => { state = e.detail.value; save(state); });
 function load(next) { state = next; song.value = state; }
 ```
+
+### Column annotations
+
+Set `annotations` to an array per Tab of `{ column, text }` or `{ column, html, text? }` entries. `column` is
+the zero-based logical Column index in `value`, independent of Spacing and Staff
+breaks. No spaces are needed to align text:
+
+```js
+song.labels = 'notes';
+song.setDocument({
+  value: [[
+    [null, null, null, null, null, null],
+    [1, 3, 2, 0, null, null],
+    [1, 3, 2, 3, null, null],
+    [1, 3, 2, null, 0, null],
+  ]],
+  annotations: [[
+    { column: 0, text: 'RE MENOR' },
+    { column: 1, text: 'Dm*' },
+    { column: 2, text: 'Dm/F*' },
+    { column: 3, text: 'Dm/A' },
+  ]],
+});
+// Update text independently, keeping the editing cursor:
+song.annotations = [[{ column: 1, text: 'Dm' }]];
+```
+
+Changing the Spacing slider, notation, labels, font or available width keeps each
+Annotation aligned with its Column, including when it moves to another Staff.
+In ASCII layout the text starts at the Column's Fret position; with `columnLayout`
+it starts at the supplied center. Long text wraps within the remaining Staff
+width. Overlapping annotations occupy separate lanes above the Strings, and each
+Staff reserves their full height. Explicit newlines are supported, duplicate
+anchors stack. `text` displays HTML characters literally; `html` renders markup:
+
+```js
+song.annotations = [[
+  { column: 1, html: '<strong>Dm</strong><sup>*</sup><br><small>Intro</small>' },
+  { column: 2, html: '<em>Dm/F</em>', text: 'Dm/F' },
+]];
+```
+
+When both fields are supplied, `html` controls the display and `text` is the ASCII
+fallback. Without a fallback, browser copy/export extracts text from HTML,
+decoding entities and preserving `<br>` and common block breaks. `format()` outside
+a browser requires `text` for HTML annotations and throws a `TypeError` if it is
+missing. HTML is inserted as supplied; pass trusted or sanitized markup. Normal
+flow HTML participates in collision measurement, including later size changes
+such as loaded images. Arbitrary positioned content can escape that flow.
+
+Column indices must be nonnegative integers within the corresponding Tab,
+including explicitly supplied empty Columns. Invalid annotations throw a
+`TypeError` before changing state. Empty display content is hidden; `null` or `[]` clears all
+annotations. Assignment and retrieval copy every entry. Entries are sorted by
+Column, preserving the order of duplicate anchors. Annotations on trailing empty
+Columns keep those Columns in `value` and ASCII output.
+
+Setting `value` preserves annotations and requires their anchors to remain valid.
+Use `setDocument({ value, annotations, columnLayout })` to update them atomically;
+omitting `annotations` from `setDocument` clears them. Properties can be assigned
+before upgrade, with `value` supplied first. Annotation updates do not emit
+`change`. Annotations are separate from note data and built-in note storage;
+persist them in consumer state. Deleting a Tab removes its annotations. Editing,
+dragging and duplicating Frets leave annotations attached to their Columns.
+
+Whole-Tab copy includes annotations, calculating ASCII offsets from the selected
+Spacing and notation. `format(tab, { annotations: [{ column: 1, text: 'Dm' }] })`
+uses the same anchors; colliding text occupies separate lines. Copying selected
+notes keeps the usual six-String ASCII. ASCII import/paste still accepts numeric
+tablature; remove annotation lines before parsing copied text.
 
 ### Aligning with a score
 
@@ -212,7 +282,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.7.0/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.8.0/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
