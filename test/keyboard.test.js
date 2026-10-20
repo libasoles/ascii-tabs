@@ -593,3 +593,74 @@ test('tuning updates rendered notes, labels and copy without changing Frets', as
     assert.equal(await page.evaluate(() => window.changes), 0);
   });
 });
+
+
+test('change reports each cell edit immediately and cellblur reports navigation and focus loss', async () => {
+  await withPage('<button id="outside">Outside</button><ascii-tabs></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => {
+      window.edits = [];
+      window.blurs = [];
+      el.addEventListener('change', e => window.edits.push(e.detail));
+      el.addEventListener('cellblur', e => window.blurs.push(e.detail));
+      el.value = [[], [[null, { fret: 7, color: 'red' }, null, null, null, null]]];
+    });
+    const cell = '.ascii-tabs-cell[data-t="1"][data-c="0"][data-s="1"]';
+    await page.click(cell);
+    await page.keyboard.type('12');
+    let edits = await page.evaluate(() => window.edits);
+    assert.deepEqual(edits.map(e => e.note), [1, 12].map(fret => ({
+      tabIndex: 1, columnIndex: 0, stringIndex: 1, value: { fret, color: 'red' },
+    })));
+    assert.equal(edits[0].value[1][0][1].fret, 1);
+    assert.equal(edits[1].value[1][0][1].fret, 12);
+    assert.equal(await page.evaluate(() => window.blurs.length), 0);
+    assert.equal(await page.$eval('.ascii-tabs-input', el => document.activeElement === el), true);
+    await page.keyboard.type('9'); // Out-of-range draft is ignored.
+    assert.equal(await page.evaluate(() => window.edits.length), 2);
+    await page.click(cell); // Refocusing the same cell is not a blur.
+    assert.equal(await page.evaluate(() => window.blurs.length), 0);
+    await page.keyboard.press('Tab');
+    assert.deepEqual(await page.evaluate(() => window.blurs[0]), edits[1]);
+    await page.keyboard.type('5');
+    await page.click('#outside');
+    edits = await page.evaluate(() => window.edits);
+    assert.deepEqual(await page.evaluate(() => window.blurs[1]), edits.at(-1));
+    assert.equal(await page.evaluate(() => window.blurs.length), 2);
+    await page.click(cell);
+    await page.keyboard.press('Delete');
+    assert.deepEqual(await page.evaluate(() => window.edits.at(-1).note), {
+      tabIndex: 1, columnIndex: 0, stringIndex: 1, value: null,
+    });
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await page.evaluate(() => window.edits.at(-1).note.value), { fret: 12, color: 'red' });
+    await page.$eval('ascii-tabs', el => {
+      const detail = window.edits.at(-1);
+      detail.value[1][0][1].fret = 24;
+      detail.note.value.color = 'blue';
+    });
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[1][0][1]), { fret: 12, color: 'red' });
+  });
+});
+
+test('mobile input reports edits immediately and pointer navigation emits cellblur', async () => {
+  await withPage('<ascii-tabs></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => {
+      window.edits = [];
+      window.blurs = [];
+      el.addEventListener('change', e => window.edits.push(e.detail));
+      el.addEventListener('cellblur', e => window.blurs.push(e.detail));
+    });
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="0"]');
+    await page.$eval('.ascii-tabs-input', input => {
+      input.value = '12';
+      input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '12' }));
+    });
+    assert.deepEqual(await page.evaluate(() => window.edits.map(e => e.note.value)), [1, 12]);
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="1"]');
+    assert.deepEqual(await page.evaluate(() => window.blurs[0]), await page.evaluate(() => window.edits[1]));
+    await page.keyboard.press('Backspace'); // Empty cell: no change.
+    assert.equal(await page.evaluate(() => window.edits.length), 2);
+  });
+});

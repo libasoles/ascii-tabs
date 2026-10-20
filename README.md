@@ -34,7 +34,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.8.0/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.9.0/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -72,6 +72,33 @@ The component renders that data as:
 ```js
 song.addEventListener('change', e => console.log(e.detail.value));
 ```
+
+`change` fires immediately when a cell's value changes, including each accepted digit
+(desktop and mobile), Backspace, Delete, Escape, parentheses and bold toggles.
+For a single-cell edit, `detail.note` identifies the edited cell and its new value:
+
+```js
+song.addEventListener('change', ({ detail: { value, note } }) => {
+  save(value); // All Tabs, in the same format as song.value.
+  if (note) {
+    const { tabIndex, columnIndex, stringIndex, value: editedNote } = note;
+    preview(editedNote, { tabIndex, columnIndex, stringIndex });
+  }
+});
+
+song.addEventListener('cellblur', ({ detail: { value, note } }) => {
+  // Same payload when leaving a cell, including an untouched cell.
+  commit(value, note);
+});
+```
+
+Indices are zero-based; `stringIndex: 0` is String 1. `note.value` is a number,
+a note object (including its styles), or `null` after clearing the cell. Both
+`detail.value` and `note.value` are independent copies. Multi-cell operations
+(paste, moves, duplication, selection edits) and Tab additions/removals emit
+`change` with `note: null`. `cellblur` bubbles when keyboard or pointer navigation
+moves to another cell, or when the editor loses focus; clicking the same cell
+does not emit it. These are DOM events: register callbacks with `addEventListener`.
 
 Setting `value` does not fire `change`. The component is uncontrolled by default; for the controlled pattern, keep the Tabs in your own state, update it on `change` and write `value` back when the state changes elsewhere:
 
@@ -282,7 +309,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.8.0/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.9.0/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."

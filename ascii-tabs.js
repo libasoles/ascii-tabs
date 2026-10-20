@@ -937,10 +937,12 @@ class AsciiTabs extends Base {
     input.addEventListener('paste', this.#onPaste);
     input.addEventListener('focus', () => this.classList.add('ascii-tabs-editing'));
     input.addEventListener('blur', () => {
+      const detail = this.#cur && this.#editDetail(this.#cur);
       this.classList.remove('ascii-tabs-editing');
       this.#endTyping();
       this.#cur = null;
       this.#render();
+      if (detail) this.dispatchEvent(new CustomEvent('cellblur', { detail, bubbles: true }));
     });
     this.#probe = this.#el('span', 'ascii-tabs-probe', this);
     this.#probe.textContent = '0000000000';
@@ -1160,9 +1162,22 @@ class AsciiTabs extends Base {
 
   // --- Editing --------------------------------------------------------------
 
-  #emitChange() {
+  #editDetail(position = null) {
+    return {
+      value: this.value,
+      note: position ? {
+        tabIndex: position.t,
+        columnIndex: position.c,
+        stringIndex: position.s,
+        value: cloneNote(this.#tabs[position.t]?.[position.c]?.[position.s] ?? null),
+      } : null,
+    };
+  }
+
+  #emitChange(position = null) {
+    const detail = this.#editDetail(position);
     this.#save();
-    this.dispatchEvent(new CustomEvent('change', { detail: { value: this.value }, bubbles: true }));
+    this.dispatchEvent(new CustomEvent('change', { detail, bubbles: true }));
   }
 
   // Stored Tabs win over <pre> and `value`; an empty or unreadable store falls back to them
@@ -1210,11 +1225,16 @@ class AsciiTabs extends Base {
       if (!this.#tabs[t]?.length) return;
       c = Math.min(c, this.#tabs[t].length - 1);
     }
+    c = Math.max(0, c);
+    const previous = this.#cur;
+    const detail = previous && (previous.t !== t || previous.c !== c || previous.s !== s)
+      ? this.#editDetail(previous) : null;
     if (!keepSelection) this.#selection = [];
     this.#endTyping();
-    this.#cur = { t, c: Math.max(0, c), s };
+    this.#cur = { t, c, s };
     this.#render();
     this.querySelector('.ascii-tabs-cur')?.scrollIntoView({ block: 'nearest' });
+    if (detail) this.dispatchEvent(new CustomEvent('cellblur', { detail, bubbles: true }));
   }
 
   #moveHorizontal(d) {
@@ -1279,7 +1299,7 @@ class AsciiTabs extends Base {
       ? { ...previous, fret: draft === '' ? null : Number(draft) } : Number(draft);
     const changed = this.#setFret(t, c, s, next);
     this.#render();
-    if (changed) this.#emitChange();
+    if (changed) this.#emitChange({ t, c, s });
   }
 
   #typeDigit(d) {
@@ -1299,7 +1319,7 @@ class AsciiTabs extends Base {
       parenthesized: true,
     });
     this.#render();
-    if (changed) this.#emitChange();
+    if (changed) this.#emitChange({ t, c, s });
   }
 
   #toggleBold() {
@@ -1314,7 +1334,7 @@ class AsciiTabs extends Base {
     if (!changed) return;
     this.#endTyping();
     this.#render();
-    this.#emitChange();
+    this.#emitChange(this.#selection.length ? null : this.#cur);
   }
 
   #onKeyDown = e => {
@@ -1385,7 +1405,7 @@ class AsciiTabs extends Base {
         const changed = this.#setFret(t, c, s, this.#draftOrigin);
         this.#endTyping();
         this.#render();
-        if (changed) this.#emitChange();
+        if (changed) this.#emitChange({ t, c, s });
       }
     }
   };
