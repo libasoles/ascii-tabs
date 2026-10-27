@@ -1,4 +1,4 @@
-// axe-core over the demo page in light and dark, idle and while editing a cell.
+// axe-core over the demo page in light and dark, idle and while editing notes or text.
 // Lighthouse alone isn't enough: axe reports the contrast of 1–3 character text (Frets, dashes,
 // String labels) as "incomplete" when it fails, and Lighthouse drops incomplete results.
 import { createServer } from 'node:http';
@@ -33,6 +33,14 @@ const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
 const states = {
   idle: async () => {},
   // Focus a cell of the first editable element, so the current-cell colours get checked
+  annotation: async tab => {
+    await tab.click('#annotations-demo .ascii-tabs-annotation-slot');
+    await tab.keyboard.type('Intro');
+  },
+  title: async tab => {
+    await tab.click('#annotations-demo .ascii-tabs-title');
+    await tab.keyboard.type('Estudio');
+  },
   editing: async tab => {
     const cell = await tab.$('ascii-tabs:not([readonly]) .ascii-tabs-cell');
     await cell.click();

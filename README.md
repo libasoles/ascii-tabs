@@ -34,7 +34,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.9.0/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.0/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -179,6 +179,56 @@ uses the same anchors; colliding text occupies separate lines. Copying selected
 notes keeps the usual six-String ASCII. ASCII import/paste still accepts numeric
 tablature; remove annotation lines before parsing copied text.
 
+### Editing annotations and titles
+
+Enable either interaction independently (both default to off):
+
+```html
+<ascii-tabs annotations-editable titles-editable></ascii-tabs>
+```
+
+The matching properties are `annotationsEditable` and `titlesEditable` (booleans).
+Hover a Column to reveal a short horizontal bar above its Strings; click in that
+upper strip to write an annotation. Clicking the Strings still edits Frets. Click
+an existing annotation to edit it. The first annotation at an anchor is edited
+from its strip; stacked annotations can each be clicked separately.
+
+Hover the empty space immediately above a Sheet's upper-left corner to reveal
+the same indicator for its title. Titles sit outside the card. Both targets also
+work by touch or keyboard: Tab to the target and press Enter or Space. The editor
+has no surrounding border, just a thin bottom border. Enter or blur saves,
+Escape cancels, and Shift+Enter inserts a newline. Saving empty text removes the
+annotation or clears the title. Typed text is literal; editing an HTML annotation
+replaces that entry with plain text only when its text changes. Cancelling or
+saving unchanged text preserves the HTML.
+
+`tabTitles` is an array of strings, one per Tab; missing entries are empty titles.
+Assign `null` or `[]` to clear titles. Titles display even when editing is disabled
+or `readonly` is set. `readonly` disables both interactions. `value` assignments
+preserve titles; `setDocument({ value, annotations, columnLayout, tabTitles })`
+updates the whole document atomically and clears titles when omitted. Removing a
+Tab removes its title; adding a Tab starts with an empty title. Titles are display
+metadata and are not included in ASCII copy/export.
+
+```js
+song.tabTitles = ['Estudio en re menor'];
+song.addEventListener('annotationchange', ({ detail }) => {
+  // { index: Tab index, column: Column index, annotations: all Tabs' annotations }
+  saveAnnotations(detail.annotations);
+});
+song.addEventListener('titlechange', ({ detail }) => {
+  // { index: Tab index, title: updated text, tabTitles: all Tabs' titles }
+  saveTitles(detail.tabTitles);
+});
+```
+
+These events bubble and fire only for user edits that change content. Programmatic
+assignments are silent. They do not emit the component's note `change` event.
+Persist annotations and titles in consumer state; built-in storage contains notes.
+Annotating an empty visual Column makes it a logical Column in `value` so its
+anchor stays valid. Programmatic updates to the document or metadata, disabling
+editing, removing a Tab, and disconnecting cancel any open text editor.
+
 ### Aligning with a score
 
 Use external geometry when a score renderer owns horizontal spacing. Update the
@@ -309,7 +359,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.9.0/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.0/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
