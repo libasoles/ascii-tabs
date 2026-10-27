@@ -8,7 +8,12 @@ const root = new URL('../', import.meta.url);
 
 async function withPage(markup, run) {
   const source = await readFile(new URL('ascii-tabs.js', root));
-  const server = createServer((request, response) => {
+  const server = createServer(async (request, response) => {
+    if (request.url === '/demo/giuliani-arpeggio-02.svg') {
+      response.writeHead(200, { 'content-type': 'image/svg+xml' });
+      response.end(await readFile(new URL('demo/giuliani-arpeggio-02.svg', root)));
+      return;
+    }
     if (request.url === '/ascii-tabs.js') {
       response.writeHead(200, { 'content-type': 'text/javascript' });
       response.end(source);
@@ -323,17 +328,22 @@ test('GitHub Pages alignment demo switches layouts, reports collisions and reset
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.waitForSelector('#alignment-demo .ascii-tabs-area');
-    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 4);
+    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 25);
+    assert.ok(await page.$eval('.score-example img', img => img.complete && img.naturalWidth > 0));
+    const originDifference = await page.evaluate(() =>
+      document.querySelector('.score-example img').getBoundingClientRect().x -
+      document.querySelector('#alignment-demo .ascii-tabs-area').getBoundingClientRect().x);
+    assert.ok(Math.abs(originDifference) < 0.1, 'score and String area share an origin');
     await page.click('#alignment-collisions');
     await page.waitForFunction(() => document.getElementById('alignment-status').textContent.startsWith('layoutoverflow:'));
     await page.click('#alignment-ascii');
     assert.equal(await page.$eval('#alignment-demo', el => el.columnLayout), null);
-    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 3);
+    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 25);
     await page.click('#alignment-reset');
     await page.click(`#alignment-demo ${cell(3)}`);
     await page.keyboard.type('9');
     assert.equal(await page.$eval('#alignment-demo', el => el.value[0][3][0]), 9);
-    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 4);
+    assert.equal(await page.$eval('#alignment-demo', el => el.value[0].length), 25);
     assert.deepEqual(errors, []);
   });
 });

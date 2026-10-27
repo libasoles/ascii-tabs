@@ -32,6 +32,13 @@
   .demo + .demo { border-top: 1px solid var(--rule); padding-top: 24px; }
   .demo h3 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
   .demo ascii-tabs { font-size: 18px; }
+  .score-scroll { overflow-x: auto; }
+  .score-example { width: calc(685px + 2ch); font: 18px ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .score-example img { display: block; width: 685px; height: 115px; margin-left: 2ch; }
+  .score-example ascii-tabs { --ascii-tabs-fret-background: var(--bg); }
+  @media (prefers-color-scheme: dark) {
+    .score-example img { filter: invert(1); }
+  }
   pre.snippet { padding: 12px; background: var(--code-bg); border-radius: 6px; overflow-x: auto; font-size: 13px; }
   details.code { margin-bottom: 12px; }
   details.code > summary { cursor: pointer; color: var(--muted); font-size: 13px; width: fit-content; }
@@ -128,22 +135,49 @@ E|-----3-|</pre>
     <p>When a score renderer controls horizontal spacing, supply <code>columnLayout</code>: one <code>{ width, positions }</code> per Tab. Each <code>positions[c]</code> is the center of Column <code>c</code> in CSS pixels from the left edge of the String area (<code>.ascii-tabs-area</code>). Labels, Sheet padding and tools sit outside those coordinates. Align that area's origin with the score's origin and convert the score's coordinates to CSS pixels.</p>
     <p>Each Tab stays in a single Staff with six full-width Strings and horizontal scrolling when needed. One- and two-digit Frets, note names and parentheses share the supplied centers. Spacing affects ASCII copy, while the screen follows the external positions.</p>
     <div class="variants">
-      <div class="demo"><h3>External positions (editable)</h3><div class="live"><ascii-tabs id="alignment-demo" variant="flat" tools="top">
+      <div class="demo"><h3>Giuliani · Op. 1, exercise 2 (editable)</h3>
+        <p>Three measures from Giuliani’s second arpeggio exercise: the score and Tab share the same note centers. Scroll horizontally on smaller screens.</p>
+        <div class="live score-scroll"><div class="score-example">
+          <img src="./demo/giuliani-arpeggio-02.svg" width="685" height="115" alt="Giuliani, Op. 1, arpeggio exercise 2: two measures of eighth-note triplets followed by a final C major chord.">
+          <ascii-tabs id="alignment-demo" variant="flat" tools="top">
   <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
-</ascii-tabs></div>
+</ascii-tabs></div></div>
 <pre class="snippet">const editor = document.getElementById('alignment-demo');
+// Note centers from the score SVG, converted to CSS pixels at scale 0.05.
+const positions = [113.6, 131.6, 149.6, 167.6, 185.6, 203.6, 221.6, 239.6, 257.6, 275.6, 293.6, 311.6, 349.7, 367.7, 385.7, 403.7, 421.7, 439.7, 457.7, 475.7, 493.7, 511.7, 529.7, 547.7, 601.75];
 editor.setDocument({
   value: [[
-    [5, 7, null, null, null, null],
-    [null, null, null, null, 0, null],
-    [12, null, null, null, null, null],
-    [null, null, null, null, null, null],
+    [null, null, null, null, 3, null],
+    [null, 1, null, null, null, null],
+    [0, null, null, null, null, null],
+    [null, null, null, 2, null, null],
+    [null, 1, null, null, null, null],
+    [0, null, null, null, null, null],
+    [null, null, 0, null, null, null],
+    [null, 1, null, null, null, null],
+    [0, null, null, null, null, null],
+    [null, null, null, null, 3, null],
+    [null, 1, null, null, null, null],
+    [0, null, null, null, null, null],
+    [null, null, null, null, 2, null],
+    [null, 3, null, null, null, null],
+    [1, null, null, null, null, null],
+    [null, null, null, 0, null, null],
+    [null, 3, null, null, null, null],
+    [1, null, null, null, null, null],
+    [null, null, 0, null, null, null],
+    [null, 3, null, null, null, null],
+    [1, null, null, null, null, null],
+    [null, null, null, null, 2, null],
+    [null, 3, null, null, null, null],
+    [1, null, null, null, null, null],
+    [0, 1, 0, 2, 3, null],
   ]],
-  columnLayout: [{ width: 640, positions: [84.5, 132, 201.25, 290] }],
+  columnLayout: [{ width: 685, positions }],
 });
 
 // Geometry-only updates keep the cursor and typing in progress.
-editor.columnLayout = [{ width: 640, positions: [84.5, 140, 220, 320] }];
+editor.columnLayout = [{ width: 685, positions }];
 
 editor.addEventListener('layoutoverflow', ({ detail }) =&gt; {
   // { index, width, collisions }
@@ -159,7 +193,7 @@ editor.columnLayout = null;</pre>
           <button id="alignment-collisions" type="button">Reset with collisions</button>
           <button id="alignment-ascii" type="button">Switch to ASCII layout</button>
         </div>
-        <p id="alignment-status" role="status">External layout: four fixed Columns, including the empty final Column. Click a String to edit.</p>
+        <p id="alignment-status" role="status">External layout: three measures from Giuliani’s arpeggio exercise 2. Click a String to edit.</p>
       </div>
     </div>
     <p><code>width</code> must be finite and positive; positions must be finite, strictly increasing, within <code>[0, width]</code>, and match every logical Column, including empty trailing Columns. A zero-Column Tab uses <code>positions: []</code> and still displays six Strings. Invalid layouts throw a descriptive <code>TypeError</code> before changing state. Geometry is copied on assignment and retrieval.</p>
@@ -583,23 +617,45 @@ json.addEventListener('input', () => {
 
   const alignment = document.getElementById('alignment-demo');
   const alignmentStatus = document.getElementById('alignment-status');
-  const resetAlignment = (positions = [84.5, 132, 201.25, 290]) => {
-    alignmentStatus.textContent = 'External layout: four fixed Columns, including the empty final Column. Click a String to edit.';
+  const scorePositions = [113.6, 131.6, 149.6, 167.6, 185.6, 203.6, 221.6, 239.6, 257.6, 275.6, 293.6, 311.6, 349.7, 367.7, 385.7, 403.7, 421.7, 439.7, 457.7, 475.7, 493.7, 511.7, 529.7, 547.7, 601.75];
+  const resetAlignment = (positions = scorePositions) => {
+    alignmentStatus.textContent = 'External layout: three measures from Giuliani’s arpeggio exercise 2. Click a String to edit.';
     alignment.setDocument({
       value: [[
-        [5, 7, null, null, null, null],
-        [null, null, null, null, 0, null],
-        [12, null, null, null, null, null],
-        [null, null, null, null, null, null],
+    [null, null, null, null, 3, null],
+    [null, 1, null, null, null, null],
+    [0, null, null, null, null, null],
+    [null, null, null, 2, null, null],
+    [null, 1, null, null, null, null],
+    [0, null, null, null, null, null],
+    [null, null, 0, null, null, null],
+    [null, 1, null, null, null, null],
+    [0, null, null, null, null, null],
+    [null, null, null, null, 3, null],
+    [null, 1, null, null, null, null],
+    [0, null, null, null, null, null],
+    [null, null, null, null, 2, null],
+    [null, 3, null, null, null, null],
+    [1, null, null, null, null, null],
+    [null, null, null, 0, null, null],
+    [null, 3, null, null, null, null],
+    [1, null, null, null, null, null],
+    [null, null, 0, null, null, null],
+    [null, 3, null, null, null, null],
+    [1, null, null, null, null, null],
+    [null, null, null, null, 2, null],
+    [null, 3, null, null, null, null],
+    [1, null, null, null, null, null],
+    [0, 1, 0, 2, 3, null],
       ]],
-      columnLayout: [{ width: 640, positions }],
+      columnLayout: [{ width: 685, positions }],
     });
   };
   alignment.addEventListener('layoutoverflow', ({ detail }) => {
     alignmentStatus.textContent = `layoutoverflow: ${detail.collisions.length} collision(s) in Tab ${detail.index + 1}. Centers stay fixed; recalculate the score spacing to resolve them.`;
   });
   document.getElementById('alignment-reset').addEventListener('click', () => resetAlignment());
-  document.getElementById('alignment-collisions').addEventListener('click', () => resetAlignment([84.5, 90, 96, 290]));
+  document.getElementById('alignment-collisions').addEventListener('click', () => resetAlignment(scorePositions.map((x, i) => i < 6 ? 113.6 + i * 2 : x)));
   document.getElementById('alignment-ascii').addEventListener('click', () => {
     alignment.columnLayout = null;
     alignmentStatus.textContent = 'ASCII layout: automatic spacing, wrapping and trailing-Column trimming restored. Copy exports plain ASCII in either mode.';
