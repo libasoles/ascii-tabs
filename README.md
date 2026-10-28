@@ -4,6 +4,26 @@ A zero-dependency web component for editing and displaying guitar tablature, wit
 
 **▶ [Try the live demo](https://libasoles.github.io/ascii-tabs/)**: every feature, editable, in your browser.
 
+## Install
+
+`ascii-tabs` is published on npm as a single ES module with no dependencies. It defines the `<ascii-tabs>` custom element when imported, so it works in any framework or in plain HTML.
+
+```sh
+npm install ascii-tabs
+```
+
+```js
+import 'ascii-tabs';
+// or, to also use the helpers:
+import { parse, format } from 'ascii-tabs';
+```
+
+```html
+<ascii-tabs></ascii-tabs>
+```
+
+No bundler? Load it from a CDN instead, see [Usage](#usage). Full documentation and a live, editable demo: **https://libasoles.github.io/ascii-tabs/**
+
 ## See it in action
 
 ### Edit and organize tabs

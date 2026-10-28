@@ -1,15 +1,50 @@
 {
   "name": "ascii-tabs",
   "version": "0.10.3",
-  "private": true,
-  "type": "module",
   "description": "A zero-dependency web component to write and show guitar tabs as plain ASCII.",
+  "type": "module",
+  "main": "./ascii-tabs.js",
+  "module": "./ascii-tabs.js",
+  "exports": {
+    ".": "./ascii-tabs.js",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": true,
+  "files": [
+    "ascii-tabs.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "guitar",
+    "tablature",
+    "tabs",
+    "ascii",
+    "ascii-tabs",
+    "web-component",
+    "custom-element",
+    "music",
+    "editor",
+    "zero-dependency"
+  ],
+  "homepage": "https://libasoles.github.io/ascii-tabs/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/libasoles/ascii-tabs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/libasoles/ascii-tabs/issues"
+  },
+  "author": "Guillermo Perez <gperez78@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "node --test",
     "a11y": "node scripts/a11y.mjs",
     "lighthouse": "lhci autorun"
   },
-  "license": "MIT",
   "devDependencies": {
     "@lhci/cli": "^0.15.1",
     "axe-core": "^4.14.0",
