@@ -24,20 +24,24 @@ gh release create vX.Y.Z --verify-tag --title "vX.Y.Z" --notes-file /path/to/rel
 
 The push publishes the commit and annotated tag together; create the GitHub Release only after it succeeds. Write release notes to a file with real newlines and use `--notes-file`: older releases contain literal `\n` from inline notes. Describe the final changes and only claim validation that has completed successfully.
 
-Then publish to npm from the tagged commit, after `npm whoami` confirms you are logged in. Check the tarball first with `npm pack --dry-run`; npm versions are immutable, so never reuse one.
+Creating the GitHub Release runs `.github/workflows/publish.yml`, which tests the tagged commit and runs `npm stage publish` through npm trusted publishing (OIDC, no token). The Trusted Publisher on npm only allows staging, so `npm publish` is rejected. The version is not public until a maintainer approves it with 2FA:
 
 ```sh
-npm publish
+npm stage list
+npm stage approve <stage-id>
 ```
+
+Check the tarball first with `npm pack --dry-run`. npm versions are immutable and a tag whose publish failed cannot be reused: fix forward with a new version.
 
 ## Verify
 
 ```sh
 gh release view vX.Y.Z --json tagName,url,isDraft,isPrerelease
+gh run list --workflow publish.yml --limit 1
 npm view ascii-tabs version
 git status --short
 ```
 
-Completion means the commit and tag are pushed, the GitHub Release exists with the intended draft/prerelease status, `npm view ascii-tabs version` returns `X.Y.Z`, and the local working tree is clean. Report the release URL and completed checks. Distinguish local validation from remote CI or Pages deployment; verify those separately before claiming they succeeded.
+Completion means the commit and tag are pushed, the GitHub Release exists with the intended draft/prerelease status, the publish workflow succeeded, the staged version is approved and `npm view ascii-tabs version` returns `X.Y.Z`, and the local working tree is clean. Report the release URL and completed checks. Distinguish local validation from remote CI or Pages deployment; verify those separately before claiming they succeeded.
 
 If publishing is interrupted, inspect the remote tag and GitHub Release first and resume from the missing step, preserving an already published tag.
