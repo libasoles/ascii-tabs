@@ -34,7 +34,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.1/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.2/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -359,7 +359,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.1/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.2/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
@@ -392,6 +392,11 @@ Features are turned on by composing parts, not by boolean attributes ([ADR 0001]
 ```
 
 `readonly` disables editing. Hint, delete and add hide themselves even when declared; copy still works. Like the editable element, every Staff runs the full width of its Sheet.
+
+Elements with no width (including those inside `hidden` or `display: none` panels) defer
+Staffs and annotations until `ResizeObserver` detects a visible size. Properties and
+getters remain available while hidden. Showing an unchanged panel at the same width
+reuses its rendered content; changes made while hidden appear on reveal.
 
 ### Copy, hint, add and delete
 

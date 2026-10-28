@@ -32,7 +32,7 @@ test('annotations track logical Columns across slider, notation, labels and widt
           });
         }, { spacing, notation });
         assert.equal(result.length, 3);
-        assert.ok(result.every(r => Math.abs(r.delta) < .1 && r.above));
+        assert.ok(result.every(r => Math.abs(r.delta) < .1 && r.above), JSON.stringify({ spacing, notation, result }));
       }
     }
     await page.$eval('ascii-tabs', el => { el.style.width = '280px'; el.style.setProperty('--ascii-tabs-font-size', '18px'); });

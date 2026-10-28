@@ -621,6 +621,7 @@ class AsciiTabs extends Base {
   #spacing = DEFAULT_SPACING;
   #capacity = DEFAULT_CAPACITY;
   #annotationMeasure = '';
+  #renderPending = true;
   #staves = [];
   #cur = null; // { t, c, s } focused cell
   #draft = null; // text typed in the focused cell, null if untouched
@@ -731,7 +732,6 @@ class AsciiTabs extends Base {
     this.#endTyping();
     if (this.#initialized) {
       this.#buildSheets();
-      this.#render();
       this.#save();
     }
   }
@@ -900,11 +900,13 @@ class AsciiTabs extends Base {
       this.#resizeObserver.observe(this);
       this.#annotationResizeObserver = new ResizeObserver(entries => {
         const bands = new Set(entries.map(({ target }) => target.closest('.ascii-tabs-annotations')));
-        for (const band of bands) if (band?.isConnected) this.#layoutAnnotationBand(band);
+        if (!this.clientWidth) return;
+        this.#layoutAnnotationBands([...bands].filter(band => band?.isConnected));
         if (this.#textEditor?.kind === 'annotation') this.#positionTextEditor();
       });
+      for (const annotation of this.querySelectorAll('.ascii-tabs-annotation')) this.#annotationResizeObserver.observe(annotation);
     }
-    this.#measure(true);
+    this.#measure();
   }
 
   disconnectedCallback() {
@@ -1043,24 +1045,26 @@ class AsciiTabs extends Base {
       this.#tabEls.push(this.#el('div', 'ascii-tabs-tab', sheet));
       this.#sheetEls.push(sheet);
     });
+    this.#renderPending = true;
     this.#measure();
-    this.#render();
   }
 
   // --- Layout ---------------------------------------------------------------
 
-  #measure(force = false) {
-    this.#scheduleOverflow();
+  #measure() {
     const tabEl = this.#tabEls[0];
     if (!tabEl || !this.#probe) return;
+    const width = tabEl.clientWidth;
+    if (!this.isConnected || !width || !this.clientWidth) return;
     const charWidth = this.#probe.getBoundingClientRect().width / 10;
-    if (!charWidth || !tabEl.clientWidth) return;
-    const chars = Math.floor(tabEl.clientWidth / charWidth);
+    if (!charWidth) return;
+    this.#scheduleOverflow();
+    const chars = Math.floor(width / charWidth);
     const capacity = Math.max(chars - labelWidth(this.labels, this.tuning), 4 * (this.#spacing + 1));
-    const signature = `${tabEl.clientWidth}:${charWidth}`;
+    const signature = `${width}:${charWidth}`;
     const annotationResized = this.#annotationMeasure !== signature;
     this.#annotationMeasure = signature;
-    if (capacity !== this.#capacity || force || (annotationResized && this.#annotations.some(entries => entries.length))) {
+    if (this.#renderPending || capacity !== this.#capacity || (annotationResized && this.#annotations.some(entries => entries.length))) {
       this.#capacity = capacity;
       this.#render();
     }
@@ -1090,7 +1094,15 @@ class AsciiTabs extends Base {
 
   #render() {
     if (!this.#initialized) return;
+    this.#renderPending = true;
+    // Keep the model live while an ancestor is hidden; retain the last visible layout.
+    if (!this.isConnected || !this.clientWidth || !this.#tabEls[0]?.clientWidth) return;
+    this.#renderPending = false;
     this.#annotationResizeObserver?.disconnect();
+    const annotationPositions = [];
+    const labels = this.labels, notation = this.notation, tuning = this.tuning;
+    const gutter = labelWidth(labels, tuning);
+    const names = stringLabels(labels, tuning);
     this.#titleEls.forEach((title, t) => {
       title.textContent = this.#tabTitles[t] ?? '';
       title.hidden = !title.textContent && !(this.titlesEditable && !this.readonly);
@@ -1105,19 +1117,19 @@ class AsciiTabs extends Base {
       let html = '';
       for (const [start, end] of this.#fit(t)) {
         // Dashes after the last Column, so every Staff ends flush with the Sheet
-        let used = 0;
-        for (let c = start; c < end; c++) used += columnWidth(tab[c], this.#spacing, this.notation, this.tuning);
+        const widths = tab.slice(start, end).map(column => columnDigits(column, notation, tuning));
+        const used = widths.reduce((sum, digits) => sum + this.#spacing + digits, 0);
         const fill = geometry ? '' : visualDashes(this.#capacity - used);
         html += '<div class="ascii-tabs-staff">';
         for (let s = 0; s < STRING_COUNT; s++) {
           html += '<span class="ascii-tabs-line">';
-          if (this.labels !== 'none') html += `<span class="ascii-tabs-label" style="flex-basis:${labelWidth(this.labels, this.tuning)}ch">${stringLabels(this.labels, this.tuning)[s]}</span>`;
+          if (labels !== 'none') html += `<span class="ascii-tabs-label" style="flex-basis:${gutter}ch">${names[s]}</span>`;
           if (geometry) html += `<span class="ascii-tabs-area" data-t="${t}" data-s="${s}" style="width:${geometry.width}px">`;
           for (let c = start; c < end; c++) {
             const isCur = this.#cur && this.#cur.t === t && this.#cur.c === c && this.#cur.s === s;
             const fret = tab[c][s];
-            const digits = geometry ? fretText(tab[c][s], s, this.notation, this.tuning).length : columnDigits(tab[c], this.notation, this.tuning);
-            const text = fretText(fret, s, this.notation, this.tuning);
+            const digits = geometry ? fretText(tab[c][s], s, notation, tuning).length : widths[c - start];
+            const text = fretText(fret, s, notation, tuning);
             const selected = !this.#drag?.selecting && this.#selection.some(p => p.t === t && p.c === c && p.s === s);
             const cls = `ascii-tabs-cell${isCur ? ' ascii-tabs-cur' : ''}${fret !== null ? ' ascii-tabs-has' : ''}${selected ? ' ascii-tabs-selected' : ''}`;
             const body =
@@ -1133,7 +1145,7 @@ class AsciiTabs extends Base {
         html += '</div>';
       }
       el.innerHTML = html;
-      this.#renderAnnotations(el, t, geometry);
+      this.#renderAnnotations(el, t, geometry, annotationPositions);
       // Assign through the CSSOM: consumer colors never become HTML or extra declarations.
       for (const cell of el.querySelectorAll('.ascii-tabs-has')) {
         const note = tab[+cell.dataset.c][+cell.dataset.s];
@@ -1146,16 +1158,18 @@ class AsciiTabs extends Base {
         del.disabled = Boolean(this.#columnLayout) || (this.#tabs.length === 1 && empty && !del._forceEnabled);
       }
     });
+    // Build every Sheet first, then measure anchors and collision lanes in batches.
+    this.#positionAnnotations(annotationPositions);
+    this.#layoutAnnotationBands([...this.querySelectorAll('.ascii-tabs-annotations')]);
     this.#placeInput();
     for (const add of this.querySelectorAll('.ascii-tabs-add')) add.disabled = Boolean(this.#columnLayout);
     this.#scheduleOverflow();
     this.#positionTextEditor();
   }
 
-  #renderAnnotations(el, t, geometry) {
+  #renderAnnotations(el, t, geometry, positions) {
     const entries = this.#annotations[t] ?? [];
     if (!entries.length && !(this.annotationsEditable && !this.readonly)) return;
-    const charWidth = this.#probe.getBoundingClientRect().width / 10;
     el.querySelectorAll('.ascii-tabs-staff').forEach((staff, row) => {
       const [start, end] = this.#staves[t][row];
       const annotations = entries.filter(a => a.column >= start && a.column < end && (a.html ?? a.text));
@@ -1163,40 +1177,52 @@ class AsciiTabs extends Base {
       const band = this.#el('div', 'ascii-tabs-annotations');
       if (geometry) band.style.width = `calc(${geometry.width}px + ${labelWidth(this.labels, this.tuning)}ch)`;
       staff.prepend(band);
-      const bounds = band.getBoundingClientRect();
       for (const entry of annotations) {
         const { column, text, html } = entry;
-        const cell = staff.querySelector(`.ascii-tabs-cell[data-c="${column}"][data-s="0"]`).getBoundingClientRect();
-        const left = cell.left - bounds.left + (geometry ? cell.width / 2 : leadingDashes(this.#spacing) * charWidth);
         const annotation = this.#el('div', 'ascii-tabs-annotation', band);
         annotation.dataset.column = column;
         if (html !== undefined) annotation.innerHTML = html;
         else annotation.textContent = text;
         this.#textTarget(annotation, 'annotation', t, this.annotationsEditable, column, entries.indexOf(entry));
-        Object.assign(annotation.style, { left: `${left}px`, maxWidth: `${Math.max(charWidth, bounds.width - left)}px`, top: '0px' });
+        annotation.style.top = '0px';
+        positions.push({ target: annotation, container: band, staff, column, end, geometry, slot: false });
         this.#annotationResizeObserver?.observe(annotation);
       }
-      this.#layoutAnnotationBand(band);
       if (this.annotationsEditable && !this.readonly) {
         const slots = this.#el('div', 'ascii-tabs-annotation-slots');
         if (geometry) slots.style.width = band.style.width;
         band.prepend(slots);
-        const bounds = slots.getBoundingClientRect();
         for (let c = start; c < end; c++) {
-          const cell = staff.querySelector(`.ascii-tabs-cell[data-c="${c}"][data-s="0"]`).getBoundingClientRect();
-          const left = cell.left - bounds.left + (geometry ? cell.width / 2 : leadingDashes(this.#spacing) * charWidth);
-          const next = c + 1 < end ? staff.querySelector(`.ascii-tabs-cell[data-c="${c + 1}"][data-s="0"]`).getBoundingClientRect() : null;
-          const width = next ? next.left - cell.left : Math.max(charWidth, bounds.width - left);
           const slot = this.#el('button', 'ascii-tabs-text-target ascii-tabs-annotation-slot', slots);
           slot.type = 'button';
           if (annotations.some(a => a.column === c)) slot.dataset.annotated = '';
-          Object.assign(slot.style, { left: `${left}px`, width: `${width}px` });
+          positions.push({ target: slot, container: slots, staff, column: c, end, geometry, slot: true });
           this.#textTarget(slot, 'annotation', t, true, c, entries.findIndex(a => a.column === c));
           // Occupied Columns are edited through the annotation itself.
           slot.disabled = slot.hasAttribute('data-annotated');
         }
       }
     });
+  }
+
+  #positionAnnotations(positions) {
+    if (!positions.length) return;
+    const charWidth = this.#probe.getBoundingClientRect().width / 10;
+    const bounds = new Map();
+    // Complete every layout read before assigning any annotation/slot positions.
+    const measured = positions.map(({ target, container, staff, column, end, geometry, slot }) => {
+      if (!bounds.has(container)) bounds.set(container, container.getBoundingClientRect());
+      const area = bounds.get(container);
+      const cell = staff.querySelector(`.ascii-tabs-cell[data-c="${column}"][data-s="0"]`).getBoundingClientRect();
+      const left = cell.left - area.left + (geometry ? cell.width / 2 : leadingDashes(this.#spacing) * charWidth);
+      const next = slot && column + 1 < end ? staff.querySelector(`.ascii-tabs-cell[data-c="${column + 1}"][data-s="0"]`).getBoundingClientRect() : null;
+      const width = next ? next.left - cell.left : Math.max(charWidth, area.width - left);
+      return { target, slot, left, width };
+    });
+    for (const { target, slot, left, width } of measured) {
+      target.style.left = `${left}px`;
+      target.style[slot ? 'width' : 'maxWidth'] = `${width}px`;
+    }
   }
 
   #textTarget(target, kind, t, enabled, c, index) {
@@ -1356,24 +1382,34 @@ class AsciiTabs extends Base {
   }
 
   #layoutAnnotationBand(band) {
+    this.#layoutAnnotationBands([band]);
+  }
+
+  #layoutAnnotationBands(bands) {
+    if (!bands.length) return;
     const charWidth = this.#probe.getBoundingClientRect().width / 10;
-    const occupied = [];
-    let height = 0;
-    for (const annotation of band.children) {
-      if (!annotation.classList.contains('ascii-tabs-annotation')) continue;
-      if (annotation.style.display === 'none') continue;
-      const left = parseFloat(annotation.style.left);
-      const box = annotation.getBoundingClientRect();
-      const right = left + box.width;
-      let top = 0;
-      for (const previous of occupied) {
-        if (left < previous.right + charWidth && right + charWidth > previous.left) top = Math.max(top, previous.bottom);
+    // Read every box before writing any collision lane or band height.
+    const measured = bands.map(band => ({
+      band,
+      annotations: [...band.children]
+        .filter(el => el.classList.contains('ascii-tabs-annotation') && el.style.display !== 'none')
+        .map(el => ({ el, box: el.getBoundingClientRect() })),
+    }));
+    for (const { band, annotations } of measured) {
+      const occupied = [];
+      let height = 0;
+      for (const { el, box } of annotations) {
+        const { left, right } = box;
+        let top = 0;
+        for (const previous of occupied) {
+          if (left < previous.right + charWidth && right + charWidth > previous.left) top = Math.max(top, previous.bottom);
+        }
+        el.style.top = `${top}px`;
+        occupied.push({ left, right, bottom: top + box.height });
+        height = Math.max(height, top + box.height);
       }
-      annotation.style.top = `${top}px`;
-      occupied.push({ left, right, bottom: top + box.height });
-      height = Math.max(height, top + box.height);
+      band.style.height = `${height}px`;
     }
-    band.style.height = `${height}px`;
   }
 
   #scheduleOverflow() {
