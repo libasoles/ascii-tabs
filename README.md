@@ -24,6 +24,14 @@ import { parse, format } from 'ascii-tabs';
 
 No bundler? Load it from a CDN instead, see [Usage](#usage). Full documentation and a live, editable demo: **https://libasoles.github.io/ascii-tabs/**
 
+## Used in
+
+`ascii-tabs` runs in production on [acordesdeguitarra.com.ar](https://acordesdeguitarra.com.ar/en):
+
+- [Tabs for arpeggios](https://acordesdeguitarra.com.ar/en/articles/tabs-for-arpeggios): an article with arpeggio tabs.
+- [Create guitar tabs](https://acordesdeguitarra.com.ar/en/create-guitar-tabs): write your own tabs online.
+- [Carcassi preludes](https://acordesdeguitarra.com.ar/en/articles/carcassi-preludes): integrated with sheet music (partituras).
+
 ## See it in action
 
 ### Edit and organize tabs
