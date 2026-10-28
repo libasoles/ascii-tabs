@@ -34,7 +34,7 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.2/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.3/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
@@ -172,6 +172,28 @@ before upgrade, with `value` supplied first. Annotation updates do not emit
 `change`. Annotations are separate from note data and built-in note storage;
 persist them in consumer state. Deleting a Tab removes its annotations. Editing,
 dragging and duplicating Frets leave annotations attached to their Columns.
+
+#### Annotation width
+
+`annotation-fit` (property `annotationFit`) decides what an Annotation does to
+the Columns around it, in editable and `readonly` Tabs alike:
+
+| Value | Behavior |
+| --- | --- |
+| `widen` (default) | The Annotation's Column grows to hold its text plus one space, so the next Column starts after it, even when that Column has notes and no Annotation. |
+| `overflow` | Columns keep the width of their Frets; long text crosses into the next Column. Overlapping Annotations still stack in separate lanes. |
+| `stagger` | Annotations alternate between two rows, so each can span about two Columns. Only when two Annotations on the same row would touch does the gap between them grow. |
+
+```html
+<ascii-tabs annotations-editable annotation-fit="stagger"></ascii-tabs>
+```
+
+Widths use the text (or `text` fallback of an `html` Annotation), measured in
+characters, and are recalculated whenever Annotations, Spacing, notation or the
+available width change. Text longer than a Staff wraps inside it. The setting does
+nothing with `columnLayout`, which keeps its explicit geometry. Copy
+uses the same widths and rows, and a Column grows when an edit is committed. `format(tab, { annotations, annotationFit })` takes
+the same option and defaults to `'overflow'`, so existing output does not change.
 
 Whole-Tab copy includes annotations, calculating ASCII offsets from the selected
 Spacing and notation. `format(tab, { annotations: [{ column: 1, text: 'Dm' }] })`
@@ -359,7 +381,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.2/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.10.3/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."

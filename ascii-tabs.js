@@ -64,12 +64,12 @@ const lastUsed = tab => {
 const lastContent = (tab, annotations = []) => Math.max(lastUsed(tab), ...annotations.map(a => a.column));
 
 // Character offsets share the same Column widths as the six Strings.
-function columnOffsets(tab, start, end, spacing, notation, tuning) {
+function columnOffsets(tab, start, end, spacing, notation, tuning, sizes = []) {
   const offsets = [];
   let used = 0;
   for (let c = start; c < end; c++) {
     offsets.push(used + leadingDashes(spacing));
-    used += columnWidth(tab[c], spacing, notation, tuning);
+    used += columnWidth(tab[c], spacing, notation, tuning, sizes[c]);
   }
   return offsets;
 }
@@ -109,18 +109,61 @@ function annotationText(entry) {
 
 // Size every String in a Column using its longest displayed Fret or note name.
 const columnDigits = (column, notation, tuning) => Math.max(1, ...column.map((v, s) => fretText(v, s, notation, tuning).length));
-const columnWidth = (column, spacing, notation, tuning) => spacing + columnDigits(column, notation, tuning);
+// `size` is the width reserved by Annotations; it never shrinks below the Frets.
+const columnWidth = (column, spacing, notation, tuning, size) => spacing + (size ?? columnDigits(column, notation, tuning));
+
+// How Annotation text claims horizontal room (`annotation-fit`):
+// widen: its Column grows so the text ends before the next Column; overflow: text may cross into
+// the next Column; stagger: alternate Annotations on two rows and grow only the gap between
+// Annotations that share a row.
+const ANNOTATION_FITS = ['widen', 'overflow', 'stagger'];
+const DEFAULT_ANNOTATION_FIT = 'widen';
+const normalizeAnnotationFit = value => (ANNOTATION_FITS.includes(value) ? value : DEFAULT_ANNOTATION_FIT);
+
+// Annotations that take up room, in Column order. Stagger rows alternate along this list.
+const shownAnnotations = annotations => annotations.filter(entry => entry.html ?? entry.text);
+const annotationLength = entry => Math.max(0, ...annotationText(entry).split('\n').map(line => Array.from(line).length));
+
+// Digits to give each Column (by index) so Annotations fit; Columns not listed keep their Frets' width.
+function annotationSizes(tab, annotations, fit, { spacing, notation, tuning, capacity }) {
+  const sizes = [];
+  if (fit === 'overflow') return sizes;
+  const digits = c => sizes[c] ?? columnDigits(tab[c], notation, tuning);
+  const widen = (c, to) => { sizes[c] = Math.max(digits(c), to); };
+  // Text wider than a Staff wraps instead, so one Staff is the most room it can claim.
+  const room = length => Math.min(length + 1, capacity);
+  const entries = shownAnnotations(annotations).filter(entry => tab[entry.column]);
+  if (fit === 'widen') {
+    for (const entry of entries) widen(entry.column, room(annotationLength(entry)) - spacing);
+    return sizes;
+  }
+  const offset = c => {
+    let x = leadingDashes(spacing);
+    for (let k = 0; k < c; k++) x += columnWidth(tab[k], spacing, notation, tuning, sizes[k]);
+    return x;
+  };
+  const rows = [null, null];
+  entries.forEach((entry, i) => {
+    const previous = rows[i % 2];
+    if (previous && entry.column > previous.column) {
+      const shortfall = offset(previous.column) + room(previous.length) - offset(entry.column);
+      if (shortfall > 0) widen(entry.column - 1, digits(entry.column - 1) + shortfall);
+    }
+    rows[i % 2] = { column: entry.column, length: annotationLength(entry) };
+  });
+  return sizes;
+}
 const leadingDashes = spacing => Math.ceil(spacing / 2);
 const visualDashes = count =>
   count ? `<span class="ascii-tabs-string" aria-hidden="true">${'-'.repeat(count)}</span>` : '';
 
 // Split Columns into Staves: [start, end) ranges that fit `capacity` characters
-function layout(tab, spacing, capacity, notation, tuning) {
+function layout(tab, spacing, capacity, notation, tuning, sizes = []) {
   const staves = [];
   let start = 0;
   let used = 0;
   for (let c = 0; c < tab.length; c++) {
-    const width = columnWidth(tab[c], spacing, notation, tuning);
+    const width = columnWidth(tab[c], spacing, notation, tuning, sizes[c]);
     if (c > start && used + width > capacity) {
       staves.push([start, c]);
       start = c;
@@ -133,7 +176,7 @@ function layout(tab, spacing, capacity, notation, tuning) {
 }
 
 // One Tab as plain ASCII, every Staff cut right after its last Column
-function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', notation = 'frets', tuning = STANDARD_TUNING, width = Infinity, annotations = [] } = {}) {
+function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', notation = 'frets', tuning = STANDARD_TUNING, width = Infinity, annotations = [], annotationFit = 'overflow' } = {}) {
   tuning = normalizeTuning(tuning);
   annotations = normalizeAnnotations([annotations], [tab])[0] ?? [];
   const names = stringLabels(labels, tuning);
@@ -141,14 +184,16 @@ function format(tab, { spacing = DEFAULT_SPACING, labels = 'numbers', notation =
   if (!columns.length) return '';
   const lead = '-'.repeat(leadingDashes(spacing));
   const trail = '-'.repeat(spacing - lead.length);
-  return layout(columns, spacing, width - labelWidth(labels, tuning), notation, tuning)
+  const capacity = width - labelWidth(labels, tuning);
+  const sizes = annotationSizes(columns, annotations, normalizeAnnotationFit(annotationFit), { spacing, notation, tuning, capacity });
+  return layout(columns, spacing, capacity, notation, tuning, sizes)
     .map(([start, end]) => {
-      const offsets = columnOffsets(columns, start, end, spacing, notation, tuning);
+      const offsets = columnOffsets(columns, start, end, spacing, notation, tuning, sizes);
       const lines = annotationLines(annotations, start, end, offsets, labelWidth(labels, tuning));
       for (let s = 0; s < STRING_COUNT; s++) {
         let line = names[s];
         for (let c = start; c < end; c++) {
-          const digits = columnDigits(columns[c], notation, tuning);
+          const digits = sizes[c] ?? columnDigits(columns[c], notation, tuning);
           const fret = fretText(columns[c][s], s, notation, tuning);
           line += lead + fret.padEnd(digits, '-') + trail;
         }
@@ -621,6 +666,7 @@ class AsciiTabs extends Base {
   #spacing = DEFAULT_SPACING;
   #capacity = DEFAULT_CAPACITY;
   #annotationMeasure = '';
+  #sizes = [];
   #renderPending = true;
   #staves = [];
   #cur = null; // { t, c, s } focused cell
@@ -668,6 +714,9 @@ class AsciiTabs extends Base {
 
   get annotationsEditable() { return this.hasAttribute('annotations-editable'); }
   set annotationsEditable(value) { this.toggleAttribute('annotations-editable', Boolean(value)); }
+
+  get annotationFit() { return normalizeAnnotationFit(this.getAttribute('annotation-fit')); }
+  set annotationFit(value) { this.setAttribute('annotation-fit', value); }
   get titlesEditable() { return this.hasAttribute('titles-editable'); }
   set titlesEditable(value) { this.toggleAttribute('titles-editable', Boolean(value)); }
 
@@ -736,7 +785,7 @@ class AsciiTabs extends Base {
     }
   }
 
-  static observedAttributes = ['readonly', 'spacing', 'labels', 'notation', 'tuning', 'lang', 'tools', 'annotations-editable', 'titles-editable'];
+  static observedAttributes = ['readonly', 'spacing', 'labels', 'notation', 'tuning', 'lang', 'tools', 'annotations-editable', 'titles-editable', 'annotation-fit'];
 
   // Strings: the `lang` preset (English by default) with `messages` merged over it
   get #text() {
@@ -842,6 +891,7 @@ class AsciiTabs extends Base {
     }
     // Moving the tools changes the Staves' width without resizing the element
     if (name === 'tools') return this.#measure();
+    if (name === 'annotation-fit') return this.#render();
     this.#rebuild();
   }
 
@@ -861,7 +911,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'columnLayout', 'annotations', 'tabTitles', 'annotationsEditable', 'titlesEditable', 'readonly', 'spacing', 'labels', 'notation', 'tuning', 'tools', 'variant', 'theme', 'messages']) {
+    for (const name of ['value', 'columnLayout', 'annotations', 'tabTitles', 'annotationsEditable', 'titlesEditable', 'annotationFit', 'readonly', 'spacing', 'labels', 'notation', 'tuning', 'tools', 'variant', 'theme', 'messages']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -1070,6 +1120,17 @@ class AsciiTabs extends Base {
     }
   }
 
+  // Explicit Column geometry keeps its own spacing; every other Tab follows `annotation-fit`.
+  #annotationFit() {
+    return this.#columnLayout ? 'overflow' : this.annotationFit;
+  }
+
+  #annotationSizes(t) {
+    return annotationSizes(this.#tabs[t], this.#annotations[t] ?? [], this.#annotationFit(), {
+      spacing: this.#spacing, notation: this.notation, tuning: this.tuning, capacity: this.#capacity,
+    });
+  }
+
   // Always leave room after the last Fret; a new Staff appears when you write past the end
   #fit(t) {
     const tab = this.#tabs[t];
@@ -1077,17 +1138,18 @@ class AsciiTabs extends Base {
     const need = Math.max(lastContent(tab, this.#annotations[t]) + (this.readonly ? 1 : 2), this.#cur && this.#cur.t === t ? this.#cur.c + 1 : 0, this.#textEditor?.t === t && this.#textEditor.kind === 'annotation' ? this.#textEditor.c + 1 : 0, 1);
     while (tab.length < need) tab.push(emptyColumn());
     tab.length = need;
-    let staves = layout(tab, this.#spacing, this.#capacity, this.notation, this.tuning);
+    const sizes = (this.#sizes[t] = this.#annotationSizes(t));
+    let staves = layout(tab, this.#spacing, this.#capacity, this.notation, this.tuning, sizes);
     // Fill the last Staff with empty Columns, so every Staff spans the Sheet and, when editable,
     // every slot can be clicked. `value` and copy trim them.
     const [start] = staves[staves.length - 1];
     let used = 0;
-    for (let c = start; c < tab.length; c++) used += columnWidth(tab[c], this.#spacing, this.notation, this.tuning);
+    for (let c = start; c < tab.length; c++) used += columnWidth(tab[c], this.#spacing, this.notation, this.tuning, sizes[c]);
     while (used + this.#spacing + 1 <= this.#capacity) {
       tab.push(emptyColumn());
       used += this.#spacing + 1;
     }
-    staves = layout(tab, this.#spacing, this.#capacity, this.notation, this.tuning);
+    staves = layout(tab, this.#spacing, this.#capacity, this.notation, this.tuning, sizes);
     this.#staves[t] = staves;
     return staves;
   }
@@ -1115,9 +1177,11 @@ class AsciiTabs extends Base {
       const lead = '-'.repeat(leadingDashes(this.#spacing));
       const trail = '-'.repeat(this.#spacing - lead.length);
       let html = '';
+      this.#sizes[t] = [];
       for (const [start, end] of this.#fit(t)) {
         // Dashes after the last Column, so every Staff ends flush with the Sheet
-        const widths = tab.slice(start, end).map(column => columnDigits(column, notation, tuning));
+        const sizes = this.#sizes[t];
+        const widths = tab.slice(start, end).map((column, i) => sizes[start + i] ?? columnDigits(column, notation, tuning));
         const used = widths.reduce((sum, digits) => sum + this.#spacing + digits, 0);
         const fill = geometry ? '' : visualDashes(this.#capacity - used);
         html += '<div class="ascii-tabs-staff">';
@@ -1177,10 +1241,12 @@ class AsciiTabs extends Base {
       const band = this.#el('div', 'ascii-tabs-annotations');
       if (geometry) band.style.width = `calc(${geometry.width}px + ${labelWidth(this.labels, this.tuning)}ch)`;
       staff.prepend(band);
+      const shown = shownAnnotations(entries);
       for (const entry of annotations) {
         const { column, text, html } = entry;
         const annotation = this.#el('div', 'ascii-tabs-annotation', band);
         annotation.dataset.column = column;
+        if (this.#annotationFit() === 'stagger') annotation.dataset.lane = shown.indexOf(entry) % 2;
         if (html !== undefined) annotation.innerHTML = html;
         else annotation.textContent = text;
         this.#textTarget(annotation, 'annotation', t, this.annotationsEditable, column, entries.indexOf(entry));
@@ -1308,6 +1374,8 @@ class AsciiTabs extends Base {
         const preview = this.#el('div', 'ascii-tabs-annotation');
         preview.style.visibility = 'hidden';
         preview.setAttribute('aria-hidden', 'true');
+        if (target.dataset.lane) preview.dataset.lane = target.dataset.lane;
+        else if (this.#annotationFit() === 'stagger') preview.dataset.lane = shownAnnotations(this.#annotations[edit.t] ?? []).filter(a => a.column <= edit.c).length % 2;
         const before = target.classList.contains('ascii-tabs-annotation') ? target
           : [...band.querySelectorAll('.ascii-tabs-annotation')].find(el => +el.dataset.column > edit.c);
         band.insertBefore(preview, before ?? null);
@@ -1398,9 +1466,11 @@ class AsciiTabs extends Base {
     for (const { band, annotations } of measured) {
       const occupied = [];
       let height = 0;
+      // Stagger puts every second Annotation on a row of its own, below the first row's tallest text.
+      const secondRow = Math.max(0, ...annotations.filter(({ el }) => el.dataset.lane === '0').map(({ box }) => box.height));
       for (const { el, box } of annotations) {
         const { left, right } = box;
-        let top = 0;
+        let top = el.dataset.lane === '1' ? secondRow : 0;
         for (const previous of occupied) {
           if (left < previous.right + charWidth && right + charWidth > previous.left) top = Math.max(top, previous.bottom);
         }
@@ -1905,7 +1975,7 @@ class AsciiTabs extends Base {
   async copy(index = 0) {
     const tab = this.#tabs[index];
     if (!tab) return;
-    await copyText(this.#selection.length && this.#selection[0].t === index ? this.#selectionText() : format(tab, { spacing: this.#spacing, labels: this.labels, notation: this.notation, tuning: this.tuning, width: this.#capacity + labelWidth(this.labels, this.tuning), annotations: this.#annotations[index] }));
+    await copyText(this.#selection.length && this.#selection[0].t === index ? this.#selectionText() : format(tab, { spacing: this.#spacing, labels: this.labels, notation: this.notation, tuning: this.tuning, width: this.#capacity + labelWidth(this.labels, this.tuning), annotations: this.#annotations[index], annotationFit: this.#annotationFit() }));
     const button = this.#sheetEls[index]?.querySelector('.ascii-tabs-copy');
     if (!button) return;
     this.#flashCopied(button);

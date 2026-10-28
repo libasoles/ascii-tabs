@@ -71,8 +71,9 @@ test('colliding multiline annotations reserve height and clear without changing 
   });
 });
 
+// Vertical reflow is under test here, so Columns keep their width (`overflow`); widening is covered in annotation-fit.test.js.
 test('HTML annotations render markup, copy text and reflow when their content changes size', async () => {
-  await withPage('<ascii-tabs style="width: 480px"></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+  await withPage('<ascii-tabs style="width: 480px" annotation-fit="overflow"></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
     await page.waitForSelector('.ascii-tabs-cell');
     const result = await page.$eval('ascii-tabs', async el => {
       const entries = [[

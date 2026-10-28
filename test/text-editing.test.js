@@ -30,7 +30,8 @@ async function withPage(markup, run) {
   }
 }
 
-const markup = '<ascii-tabs annotations-editable titles-editable><ascii-tabs-sheet></ascii-tabs-sheet><ascii-tabs-add></ascii-tabs-add></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>';
+// Lane placement is under test here; Column widening has its own tests in annotation-fit.test.js.
+const markup = '<ascii-tabs annotations-editable annotation-fit="overflow" titles-editable><ascii-tabs-sheet></ascii-tabs-sheet><ascii-tabs-add></ascii-tabs-add></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>';
 const slot = c => `.ascii-tabs-annotation-slot[data-t="0"][data-c="${c}"]`;
 const editor = '.ascii-tabs-text-editor';
 test('annotation editor occupies its committed lane without moving the Strings', async () => {

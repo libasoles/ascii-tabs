@@ -16,6 +16,10 @@ _Avoid_: Beat, time, step, slot
 Text attached to a Column in a Tab, such as a chord name or a playing instruction.
 _Avoid_: Staff header, row text
 
+**Annotation fit**:
+How an Annotation's text claims horizontal room: `widen` its Column, `overflow` into the next one, or `stagger` on two rows.
+_Avoid_: Annotation width mode
+
 **String**:
 One of the six guitar strings, numbered 1 (highest pitch) to 6 (lowest).
 _Avoid_: Line, cuerda
