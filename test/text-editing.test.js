@@ -33,6 +33,47 @@ async function withPage(markup, run) {
 const markup = '<ascii-tabs annotations-editable titles-editable><ascii-tabs-sheet></ascii-tabs-sheet><ascii-tabs-add></ascii-tabs-add></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>';
 const slot = c => `.ascii-tabs-annotation-slot[data-t="0"][data-c="${c}"]`;
 const editor = '.ascii-tabs-text-editor';
+test('annotation editor occupies its committed lane without moving the Strings', async () => {
+  await withPage(markup, async page => {
+    await ready(page);
+    const cases = [
+      { annotations: [], column: 2, text: 'B2' },
+      { annotations: [{ column: 2, text: 'B2' }], column: 6, text: 'C' },
+      { annotations: [{ column: 2, text: 'B2' }], column: 3, text: 'Long annotation' },
+      { annotations: [{ column: 1, text: 'Long annotation' }, { column: 2, text: 'B2' }], column: 3, text: 'C' },
+      { annotations: [{ column: 2, text: 'B2' }], column: 2, text: 'Longer replacement' },
+      { annotations: [{ column: 2, text: 'B2' }], column: 1, text: 'Earlier annotation' },
+    ];
+    for (const [i, fixture] of cases.entries()) {
+      await page.$eval('ascii-tabs', (el, annotations) => el.setDocument({
+        value: [Array.from({ length: 8 }, () => [null, null, null, null, null, null])],
+        annotations: [annotations],
+      }), fixture.annotations);
+      if (!fixture.annotations.length) {
+        assert.equal(await page.$eval('.ascii-tabs-annotations', el => el.getBoundingClientRect().height), 0);
+      }
+      await page.click(slot(fixture.column));
+      await page.keyboard.type(fixture.text);
+      const before = await page.evaluate(() => {
+        const input = document.querySelector('.ascii-tabs-text-editor');
+        const slots = document.querySelector('.ascii-tabs-annotation-slots');
+        if (getComputedStyle(slots).position !== 'absolute') throw new Error('Slots must not add flow height');
+        return { top: input.getBoundingClientRect().top, width: input.getBoundingClientRect().width,
+          stringTop: document.querySelector('.ascii-tabs-line').getBoundingClientRect().top };
+      });
+      if (i % 2) await page.$eval(editor, el => el.blur());
+      else await page.keyboard.press('Enter');
+      const after = await page.evaluate(text => ({
+        top: [...document.querySelectorAll('.ascii-tabs-annotation')].find(el => el.textContent === text).getBoundingClientRect().top,
+        width: [...document.querySelectorAll('.ascii-tabs-annotation')].find(el => el.textContent === text).getBoundingClientRect().width,
+        stringTop: document.querySelector('.ascii-tabs-line').getBoundingClientRect().top,
+      }), fixture.text);
+      assert.ok(Math.abs(before.top - after.top) < 1, `case ${i}: editor ${before.top}, annotation ${after.top}`);
+      assert.ok(Math.abs(before.width - after.width) <= 2, `case ${i}: editor width must follow the text`);
+      assert.ok(Math.abs(before.stringTop - after.stringTop) < 1, `case ${i}: Strings moved from ${before.stringTop} to ${after.stringTop} on commit`);
+    }
+  });
+});
 async function ready(page) {
   await page.waitForSelector(slot(0));
   await page.$eval('ascii-tabs', el => {
@@ -40,6 +81,40 @@ async function ready(page) {
     for (const name of ['annotationchange', 'titlechange', 'change']) el.addEventListener(name, e => window.events.push({ name, detail: e.detail }));
   });
 }
+
+test('only empty Columns show the annotation entry indicator', async () => {
+  await withPage(markup, async page => {
+    await ready(page);
+    await page.$eval('ascii-tabs', el => el.setDocument({
+      value: [Array.from({ length: 8 }, () => [null, null, null, null, null, null])],
+      annotations: [[{ column: 2, text: 'F1' }, { column: 6, html: '<b>Am</b>' }]],
+    }));
+    for (const column of [2, 6]) {
+      assert.equal(await page.$eval(slot(column), el => el.disabled && getComputedStyle(el).pointerEvents === 'none'), true);
+      await page.hover(`.ascii-tabs-cell[data-c="${column}"][data-s="2"]`);
+      assert.equal(await page.$eval(slot(column), el => getComputedStyle(el, '::after').display), 'none');
+      await page.hover(slot(column));
+      assert.equal(await page.$eval(slot(column), el => getComputedStyle(el, '::after').display), 'none');
+    }
+    await page.hover('.ascii-tabs-cell[data-c="4"][data-s="2"]');
+    assert.equal(await page.$eval(slot(4), el => getComputedStyle(el, '::after').display), 'block');
+    assert.equal(await page.$eval(slot(4), el => getComputedStyle(el, '::after').opacity), '0.65');
+    await page.keyboard.press('Tab');
+    const annotation = '.ascii-tabs-annotation[data-column="2"]';
+    await page.focus(annotation);
+    assert.equal(await page.$eval(annotation, el => el.matches(':focus-visible') && getComputedStyle(el).outlineStyle === 'solid'), true);
+    assert.equal(await page.$eval(annotation, el => getComputedStyle(el).cursor), 'text');
+    await page.$eval('ascii-tabs', el => { el.annotations = [[{ column: 2, text: 'F1 extended annotation' }]]; });
+    // The text crosses other Columns' slots; clicking it must still edit this entry.
+    await page.click(annotation);
+    assert.equal(await page.$eval(editor, el => el.value), 'F1 extended annotation');
+    await page.keyboard.press('Escape');
+    await page.$eval('ascii-tabs', el => { el.annotations = [[]]; });
+    await page.hover('.ascii-tabs-cell[data-c="2"][data-s="2"]');
+    assert.equal(await page.$eval(slot(2), el => getComputedStyle(el, '::after').display), 'block');
+    assert.equal(await page.$eval(slot(2), el => getComputedStyle(el, '::after').opacity), '0.65');
+  });
+});
 
 test('hover indicates the Column and click edits literal annotations without editing Frets', async () => {
   await withPage(markup, async page => {

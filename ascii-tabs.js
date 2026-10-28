@@ -377,7 +377,7 @@ ascii-tabs .ascii-tabs-staff + .ascii-tabs-staff { margin-top: 1.4em; }
 ascii-tabs .ascii-tabs-annotations { position: relative; margin-bottom: .25em; }
 ascii-tabs .ascii-tabs-annotation { position: absolute; display: flow-root; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5em; user-select: text; -webkit-user-select: text; }
 ascii-tabs .ascii-tabs-annotation img { max-width: 100%; height: auto; }
-/* Text entry is opt-in. Empty targets reserve a quiet line above the Strings. */
+/* Text entry is opt-in. Empty Column targets overlay the margin above the Strings. */
 ascii-tabs .ascii-tabs-title[hidden] { display: none; }
 ascii-tabs .ascii-tabs-title { display: block; margin: 0 0 8px; min-height: 1.5em; white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 600; }
 ascii-tabs .ascii-tabs-sheet + .ascii-tabs-title { margin-top: 24px; }
@@ -385,7 +385,9 @@ ascii-tabs .ascii-tabs-sheet + .ascii-tabs-title[hidden] + .ascii-tabs-sheet { m
 ascii-tabs .ascii-tabs-text-target { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; text-align: left; cursor: text; }
 ascii-tabs .ascii-tabs-title.ascii-tabs-text-target { min-width: 8ch; max-width: 100%; font-weight: 600; }
 ascii-tabs .ascii-tabs-text-target:focus-visible { outline: 1px solid var(--ascii-tabs-accent); outline-offset: 2px; }
-ascii-tabs .ascii-tabs-annotation-slots { position: relative; height: 1.25em; }
+ascii-tabs .ascii-tabs-annotation-slots { position: absolute; inset: 0; height: .25em; }
+ascii-tabs .ascii-tabs-annotations:has(.ascii-tabs-annotation) .ascii-tabs-annotation-slots { height: 1.5em; }
+ascii-tabs .ascii-tabs-annotation.ascii-tabs-text-target { z-index: 1; line-height: 1.5em; }
 ascii-tabs .ascii-tabs-annotation-slot { position: absolute; top: 0; height: 100%; }
 ascii-tabs .ascii-tabs-annotation-slot::after, ascii-tabs .ascii-tabs-title:empty::after {
   content: ''; display: block; width: .9em; height: 3px; background: currentColor;
@@ -394,11 +396,13 @@ ascii-tabs .ascii-tabs-annotation-slot::after, ascii-tabs .ascii-tabs-title:empt
 ascii-tabs .ascii-tabs-title:empty { position: relative; }
 ascii-tabs .ascii-tabs-text-target:hover::after, ascii-tabs .ascii-tabs-text-target:focus-visible::after,
 ascii-tabs .ascii-tabs-annotation-slot.ascii-tabs-column-hover::after { opacity: .65; }
+ascii-tabs .ascii-tabs-annotation-slot[data-annotated]::after { display: none; }
+ascii-tabs .ascii-tabs-annotation-slot[data-annotated] { pointer-events: none; }
 ascii-tabs .ascii-tabs-text-target.ascii-tabs-text-active { visibility: hidden; }
 ascii-tabs .ascii-tabs-text-editor {
   position: absolute; z-index: 5; box-sizing: border-box; resize: none; overflow: hidden; margin: 0; padding: 0;
   border: 0; border-bottom: 1px solid var(--ascii-tabs-line); border-radius: 0; outline: none;
-  background: var(--ascii-tabs-sheet); color: var(--ascii-tabs-ink); font: inherit; line-height: 1.5em;
+  background: transparent; color: var(--ascii-tabs-ink); font: inherit; line-height: 1.5em;
 }
 ascii-tabs .ascii-tabs-text-editor:focus { border-bottom-color: var(--ascii-tabs-dash); }
 
@@ -897,6 +901,7 @@ class AsciiTabs extends Base {
       this.#annotationResizeObserver = new ResizeObserver(entries => {
         const bands = new Set(entries.map(({ target }) => target.closest('.ascii-tabs-annotations')));
         for (const band of bands) if (band?.isConnected) this.#layoutAnnotationBand(band);
+        if (this.#textEditor?.kind === 'annotation') this.#positionTextEditor();
       });
     }
     this.#measure(true);
@@ -1175,7 +1180,7 @@ class AsciiTabs extends Base {
       if (this.annotationsEditable && !this.readonly) {
         const slots = this.#el('div', 'ascii-tabs-annotation-slots');
         if (geometry) slots.style.width = band.style.width;
-        band.after(slots);
+        band.prepend(slots);
         const bounds = slots.getBoundingClientRect();
         for (let c = start; c < end; c++) {
           const cell = staff.querySelector(`.ascii-tabs-cell[data-c="${c}"][data-s="0"]`).getBoundingClientRect();
@@ -1184,8 +1189,11 @@ class AsciiTabs extends Base {
           const width = next ? next.left - cell.left : Math.max(charWidth, bounds.width - left);
           const slot = this.#el('button', 'ascii-tabs-text-target ascii-tabs-annotation-slot', slots);
           slot.type = 'button';
+          if (annotations.some(a => a.column === c)) slot.dataset.annotated = '';
           Object.assign(slot.style, { left: `${left}px`, width: `${width}px` });
           this.#textTarget(slot, 'annotation', t, true, c, entries.findIndex(a => a.column === c));
+          // Occupied Columns are edited through the annotation itself.
+          slot.disabled = slot.hasAttribute('data-annotated');
         }
       }
     });
@@ -1266,6 +1274,35 @@ class AsciiTabs extends Base {
     if (!edit) return;
     const target = this.#editorTarget(edit);
     if (!target) return this.#closeTextEditor(false);
+    if (edit.kind === 'annotation') {
+      const band = target.closest('.ascii-tabs-annotations');
+      if (!edit.preview?.isConnected) {
+        // Lay out a literal-text preview in the same order as committed entries.
+        // Its intrinsic size drives both collision lanes and the editor overlay.
+        const preview = this.#el('div', 'ascii-tabs-annotation');
+        preview.style.visibility = 'hidden';
+        preview.setAttribute('aria-hidden', 'true');
+        const before = target.classList.contains('ascii-tabs-annotation') ? target
+          : [...band.querySelectorAll('.ascii-tabs-annotation')].find(el => +el.dataset.column > edit.c);
+        band.insertBefore(preview, before ?? null);
+        edit.preview = preview;
+      }
+      const preview = edit.preview;
+      preview.textContent = edit.input.value || '\u200b';
+      preview.style.left = target.style.left;
+      const charWidth = this.#probe.getBoundingClientRect().width / 10;
+      preview.style.maxWidth = `${Math.max(charWidth, band.getBoundingClientRect().width - parseFloat(target.style.left))}px`;
+      if (target.classList.contains('ascii-tabs-annotation')) target.style.display = 'none';
+      this.#layoutAnnotationBand(band);
+      const box = preview.getBoundingClientRect();
+      const root = this.getBoundingClientRect();
+      Object.assign(edit.input.style, {
+        left: `${box.left - root.left}px`, top: `${box.top - root.top}px`,
+        width: `${Math.max(1, box.width) + 1}px`, height: `${box.height + 1}px`, fontWeight: '400',
+      });
+      target.classList.add('ascii-tabs-text-active');
+      return;
+    }
     let box = target.getBoundingClientRect();
     const root = this.getBoundingClientRect();
     const fontSize = parseFloat(getComputedStyle(this).fontSize);
@@ -1277,12 +1314,6 @@ class AsciiTabs extends Base {
     edit.input.style.height = `${Math.max(fontSize * 1.5, edit.input.scrollHeight + 1)}px`;
     target.classList.add('ascii-tabs-text-active');
     target.style.minHeight = edit.input.style.height;
-    if (target.classList.contains('ascii-tabs-annotation')) {
-      target.style.width = `${width}px`;
-      this.#layoutAnnotationBand(target.parentElement);
-    } else if (target.classList.contains('ascii-tabs-annotation-slot')) {
-      target.parentElement.style.height = edit.input.style.height;
-    }
     box = target.getBoundingClientRect();
     edit.input.style.top = `${box.top - root.top}px`;
   }
@@ -1293,7 +1324,13 @@ class AsciiTabs extends Base {
     this.#textEditor = null;
     const target = this.#editorTarget(edit);
     target?.classList.remove('ascii-tabs-text-active');
-    if (target) target.style.minHeight = '';
+    if (target) {
+      target.style.minHeight = '';
+      target.style.display = '';
+    }
+    const band = edit.preview?.parentElement;
+    edit.preview?.remove();
+    if (band) this.#layoutAnnotationBand(band);
     const text = edit.input.value;
     edit.input.remove();
     if (commit && text !== edit.original) {
@@ -1323,6 +1360,8 @@ class AsciiTabs extends Base {
     const occupied = [];
     let height = 0;
     for (const annotation of band.children) {
+      if (!annotation.classList.contains('ascii-tabs-annotation')) continue;
+      if (annotation.style.display === 'none') continue;
       const left = parseFloat(annotation.style.left);
       const box = annotation.getBoundingClientRect();
       const right = left + box.width;
