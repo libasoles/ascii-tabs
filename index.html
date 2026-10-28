@@ -373,6 +373,7 @@ editor.columnLayout = null;</pre>
     <p><code>setDocument({ value, annotations, columnLayout })</code> validates and updates the document together; omitting <code>annotations</code> clears them. Setting <code>value</code> alone preserves existing annotations and requires their anchors to remain valid. Keep annotations in your own state for persistence; built-in storage contains notes. Whole-Tab copy includes aligned annotations; selected-note copy keeps the usual ASCII. To import copied text, remove annotation lines first.</p>
     <p>Enable <code>annotations-editable</code> and <code>titles-editable</code> independently. Hover a Column to reveal a horizontal bar; click the strip above its Strings to write. Hover above the card’s upper-left corner to add a title outside the card. Click existing text to edit it. The borderless editor has a subtle bottom line: Enter or blur saves, Escape cancels, Shift+Enter adds a newline. Tab then Enter or Space also opens a target. <code>readonly</code> disables editing.</p>
     <p>Set titles with <code>element.tabTitles = ['Estudio']</code>, or include <code>tabTitles</code> in <code>setDocument()</code>. Listen for <code>annotationchange</code> (<code>{ index, column, annotations }</code>) and <code>titlechange</code> (<code>{ index, title, tabTitles }</code>) to persist user changes. Programmatic assignments are silent. Titles are separate from ASCII export and built-in note storage.</p>
+    <p>Choose how annotations claim horizontal room with <code>annotation-fit</code> (property <code>annotationFit</code>), in editable and <code>readonly</code> Tabs. <code>widen</code> (default) grows the annotated Column so its text ends before the next Column, even if that Column has notes and no annotation. <code>overflow</code> keeps Columns as wide as their Frets and lets long text cross into the next Column. <code>stagger</code> alternates annotations on two rows and widens only the gap between annotations that share a row. Text longer than a Staff wraps inside it; <code>columnLayout</code> keeps its explicit geometry. Copy uses the same widths, and <code>format(tab, { annotations, annotationFit })</code> takes the same option (default <code>'overflow'</code>). A Column grows when an edit is committed.</p>
     <div class="variants">
       <div class="demo"><h3>Chord annotations</h3><div class="live"><ascii-tabs id="annotations-demo" labels="notes" spacing="6" annotations-editable titles-editable>
   <ascii-tabs-spacing></ascii-tabs-spacing>
@@ -396,6 +397,14 @@ chords.setDocument({
     { column: 3, text: 'Dm/A' },
   ]],
 });</pre>
+      </div>
+      <div class="demo"><h3>Annotation width</h3><div class="live"><label>annotation-fit <select id="fit-select"><option>widen</option><option>overflow</option><option>stagger</option></select></label><ascii-tabs id="fit-demo" labels="notes" annotations-editable>
+  <ascii-tabs-sheet><ascii-tabs-copy></ascii-tabs-copy></ascii-tabs-sheet>
+</ascii-tabs></div>
+        <pre class="snippet">&lt;ascii-tabs annotation-fit="stagger"&gt;&lt;/ascii-tabs&gt;
+
+// or
+tab.annotationFit = 'widen' | 'overflow' | 'stagger';</pre>
       </div>
     </div>
   </section>
@@ -614,6 +623,22 @@ json.addEventListener('input', () => {
       { column: 3, text: 'Dm/A' },
     ]],
   });
+
+  const fitDemo = document.getElementById('fit-demo');
+  fitDemo.setDocument({
+    value: [[
+      [0, 2, 2, 2, 0, null],
+      [2, 1, 2, 1, null, null],
+      [0, 0, 1, 0, 2, 0],
+      [3, null, null, null, null, null],
+    ]],
+    annotations: [[
+      { column: 0, text: 'Ddim7/F#' },
+      { column: 1, text: 'Gmaj7' },
+      { column: 2, text: 'Am' },
+    ]],
+  });
+  document.getElementById('fit-select').addEventListener('change', event => { fitDemo.annotationFit = event.target.value; });
 
   const alignment = document.getElementById('alignment-demo');
   const alignmentStatus = document.getElementById('alignment-status');
