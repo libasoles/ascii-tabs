@@ -83,10 +83,11 @@
     <table class="shortcuts" aria-labelledby="keyboard-shortcuts">
       <thead><tr><th scope="col">Key</th><th scope="col">Action</th></tr></thead>
       <tbody>
-        <tr><td><kbd>0</kbd>–<kbd>9</kbd></td><td>Type a fret number from 0 to 24 in the current cell.</td></tr>
+        <tr><td><kbd>0</kbd>–<kbd>9</kbd></td><td>Type a fret number from 0 to 24 in the current cell, or up to <code>max-fret</code>.</td></tr>
         <tr><td><kbd>Left Arrow</kbd> / <kbd>Right Arrow</kbd></td><td>Move to the previous or next Column.</td></tr>
         <tr><td><kbd>Up Arrow</kbd> / <kbd>Down Arrow</kbd></td><td>Move between Strings, crossing into the adjacent Staff at its edge.</td></tr>
         <tr><td><kbd>Enter</kbd> / <kbd>Tab</kbd></td><td>Move to the next Column. Hold <kbd>Shift</kbd> to move to the previous Column.</td></tr>
+        <tr><td><kbd>Shift</kbd> + <kbd>Up Arrow</kbd> / <kbd>Down Arrow</kbd></td><td>Re-finger the current note, or the whole selection, on the next String up or down that keeps its pitch: a 7 on String 5 becomes a 2 on String 4. It skips Strings where the Fret would fall outside 0 to <code>max-fret</code>, and does nothing when no such position exists.</td></tr>
         <tr><td><kbd>Cmd</kbd> + <kbd>Right Arrow</kbd><br><kbd>Alt</kbd> + <kbd>Right Arrow</kbd></td><td>Duplicate selected notes as a group after its last Column and select the duplicate. Without a selection, copy all six Strings of the current Column into the next one, replacing its contents. Extends the Tab when needed.</td></tr>
         <tr><td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>C</kbd></td><td>Copy selected notes as ASCII. The Sheet's copy button also copies the selection.</td></tr>
         <tr><td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>V</kbd></td><td>Paste ASCII at the current Column, keeping its String positions.</td></tr>
@@ -407,6 +408,19 @@ chords.setDocument({
 tab.annotationFit = 'widen' | 'overflow' | 'stagger';</pre>
       </div>
     </div>
+  </section>
+
+  <section>
+    <h2 id="max-fret">Fretboard length: max-fret</h2>
+    <p>The editor accepts Frets 0–24 by default. <code>max-fret</code> (property <code>maxFret</code>) lowers that limit for instruments with a shorter neck, such as <code>max-fret="19"</code> for a classical guitar. It applies when typing a Fret and when re-fingering with <kbd>Shift</kbd> + <kbd>Up Arrow</kbd> / <kbd>Down Arrow</kbd>. Values outside 1–24 fall back to 24. It does not rewrite notes already in <code>value</code>, and changing the attribute takes effect immediately.</p>
+    <div class="variants">
+      <div class="demo"><h3>max-fret="12"</h3><div class="live"><ascii-tabs max-fret="12"></ascii-tabs></div>
+        <pre class="snippet">&lt;ascii-tabs max-fret="12"&gt;&lt;/ascii-tabs&gt;
+
+// or from script
+tabs.maxFret = 12;</pre></div>
+    </div>
+    <p>Try it: click a String and type <code>13</code>. The second digit is ignored, leaving <code>1</code>.</p>
   </section>
 
   <section>
