@@ -72,6 +72,26 @@ test('Shift+Arrow moves the focused note to the same pitch on the next String, o
   });
 });
 
+test('max-fret limits typed frets and Shift+Arrow re-fingering', async () => {
+  await withPage('<ascii-tabs max-fret="19"></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="0"]');
+    await page.keyboard.type('20');
+    assert.equal(await page.$eval('ascii-tabs', el => el.value[0][0][0]), 2);
+    await page.keyboard.press('Delete');
+    await page.keyboard.type('19');
+    assert.equal(await page.$eval('ascii-tabs', el => el.value[0][0][0]), 19);
+    await page.$eval('ascii-tabs', el => { el.value = [[[null, null, null, null, null, 15]]]; });
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="5"]');
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.up('Shift');
+    assert.deepEqual(await page.$eval('ascii-tabs', el => el.value[0][0]), [null, null, null, null, 10, null]);
+    await page.$eval('ascii-tabs', el => { el.maxFret = 24; });
+    assert.equal(await page.$eval('ascii-tabs', el => el.getAttribute('max-fret')), '24');
+  });
+});
+
 async function selectNotes(page) {
   const bounds = await page.$eval('ascii-tabs', el => {
     const start = el.querySelector('.ascii-tabs-cell[data-c="0"][data-s="5"]').getBoundingClientRect();

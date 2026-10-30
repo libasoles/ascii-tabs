@@ -62,12 +62,12 @@ Design notes: [spec](docs/spec-v0.1.md), [glossary](GLOSSARY.md), [ADRs](docs/ad
 ## Usage
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.11.0/ascii-tabs.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.11.1/ascii-tabs.js"></script>
 
 <ascii-tabs></ascii-tabs>
 ```
 
-A bare `<ascii-tabs>` is editable: a hint, one Sheet per Tab with copy and delete buttons, and an add button. Click a string and type the fret number (0–24); move with the arrow keys, Enter and Tab. Press Cmd+Right Arrow or Alt+Right Arrow to copy all six strings of the current column into the next column, replacing its contents, and move the cursor there. Press Shift+Up Arrow or Shift+Down Arrow to re-finger the current note (or the whole selection) on the next String up or down that keeps its pitch, for example a 7 on String 5 becomes a 2 on String 4; nothing happens when no such position exists. Press Cmd+0 or Alt+0 to fill only the empty cells of the current column with zeros, keeping existing frets and the cursor in place.
+A bare `<ascii-tabs>` is editable: a hint, one Sheet per Tab with copy and delete buttons, and an add button. Click a string and type the fret number (0–24, or up to `max-fret`); move with the arrow keys, Enter and Tab. Press Cmd+Right Arrow or Alt+Right Arrow to copy all six strings of the current column into the next column, replacing its contents, and move the cursor there. Press Shift+Up Arrow or Shift+Down Arrow to re-finger the current note (or the whole selection) on the next String up or down that keeps its pitch, for example a 7 on String 5 becomes a 2 on String 4; nothing happens when no such position exists. Press Cmd+0 or Alt+0 to fill only the empty cells of the current column with zeros, keeping existing frets and the cursor in place.
 
 Drag from an empty cell or a blank area of a Sheet to select notes inside a rectangle. Drag any selected note to move the group, keeping its relative columns and strings; occupied destination cells are replaced. Cmd+Right Arrow or Alt+Right Arrow duplicates the selected group immediately after its last column and selects the duplicate. Cmd/Ctrl+C or the Sheet's copy button copies the selection as ASCII; Cmd/Ctrl+V pastes ASCII at the current column, preserving string positions. Delete or Backspace removes the selected notes, and Escape clears the selection.
 
@@ -409,7 +409,7 @@ E|-----3-|</pre>
 The copy button copies the same plain ASCII. `parse` and `format` are exported as pure functions:
 
 ```js
-import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.11.0/ascii-tabs.js';
+import { parse, format } from 'https://cdn.jsdelivr.net/gh/libasoles/ascii-tabs@0.11.1/ascii-tabs.js';
 
 const tab = parse('1 -3--5-\n2 ------\n3 ------\n4 ------\n5 ------\n6 ------'); // one Tab: Column[]
 format(tab, { spacing: 2 }); // "1 -3--5-\n2 ------\n..."
@@ -572,6 +572,12 @@ Missing, invalid or incomplete tunings use standard tuning (`E B G D A E`).
 Changing or removing the attribute updates the view immediately.
 
 ## String labels
+
+`max-fret` (property `maxFret`) sets the highest Fret the editor accepts when typing or re-fingering with Shift+Up/Down Arrow. It defaults to `24`; use `max-fret="19"` for a classical guitar. Values outside 1–24 fall back to 24. It does not rewrite notes already in `value`.
+
+```html
+<ascii-tabs max-fret="19"></ascii-tabs>
+```
 
 Strings are labelled `1`–`6` by default, on screen and in copied text. `labels="notes"` names them using `tuning` (standard tuning by default: `e B G D A E`, String 1 to 6). `labels="none"` hides the labels and uses their space for Columns. This also applies to copied text. The `labels` property accepts `"numbers"`, `"notes"`, or `"none"`; other values fall back to numbers. Parsing accepts all three styles whatever the attribute says.
 

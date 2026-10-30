@@ -785,7 +785,7 @@ class AsciiTabs extends Base {
     }
   }
 
-  static observedAttributes = ['readonly', 'spacing', 'labels', 'notation', 'tuning', 'lang', 'tools', 'annotations-editable', 'titles-editable', 'annotation-fit'];
+  static observedAttributes = ['readonly', 'spacing', 'labels', 'notation', 'tuning', 'lang', 'tools', 'annotations-editable', 'titles-editable', 'annotation-fit', 'max-fret'];
 
   // Strings: the `lang` preset (English by default) with `messages` merged over it
   get #text() {
@@ -844,6 +844,16 @@ class AsciiTabs extends Base {
 
   set tuning(value) {
     this.setAttribute('tuning', normalizeTuning(value).join(' '));
+  }
+
+  // Highest Fret the editor accepts: 24 by default, lower for instruments with fewer frets
+  get maxFret() {
+    const n = Math.floor(Number(this.getAttribute('max-fret')));
+    return Number.isFinite(n) && n >= 1 && n <= MAX_FRET ? n : MAX_FRET;
+  }
+
+  set maxFret(value) {
+    this.setAttribute('max-fret', value);
   }
 
   get tools() {
@@ -911,7 +921,7 @@ class AsciiTabs extends Base {
       return;
     }
     // Properties set before the element was upgraded shadow the accessors
-    for (const name of ['value', 'columnLayout', 'annotations', 'tabTitles', 'annotationsEditable', 'titlesEditable', 'annotationFit', 'readonly', 'spacing', 'labels', 'notation', 'tuning', 'tools', 'variant', 'theme', 'messages']) {
+    for (const name of ['value', 'columnLayout', 'annotations', 'tabTitles', 'annotationsEditable', 'titlesEditable', 'annotationFit', 'readonly', 'spacing', 'labels', 'notation', 'tuning', 'maxFret', 'tools', 'variant', 'theme', 'messages']) {
       if (Object.hasOwn(this, name)) {
         const own = this[name];
         delete this[name];
@@ -1654,7 +1664,7 @@ class AsciiTabs extends Base {
   }
 
   // Shift+Up/Down: re-finger the focused or selected notes on the nearest String that keeps their
-  // pitch and puts every one of them within 0..MAX_FRET. Strings are assumed to descend in pitch.
+  // pitch and puts every one of them within 0..maxFret. Strings are assumed to descend in pitch.
   #refinger(d) {
     const notes = (this.#selection.length ? this.#selection : [this.#cur]).filter(p => this.#tabs[p.t][p.c]?.[p.s] != null);
     if (!notes.length) return;
@@ -1667,7 +1677,7 @@ class AsciiTabs extends Base {
         const note = this.#tabs[p.t][p.c][p.s];
         return { ...p, to, fret: fretValue(note) + depth[to] - depth[p.s], note };
       });
-      if (moved.some(m => m.to < 0 || m.to >= STRING_COUNT || !isFret(m.fret))) {
+      if (moved.some(m => m.to < 0 || m.to >= STRING_COUNT || !isFret(m.fret) || m.fret > this.maxFret)) {
         if (moved.some(m => m.to < 0 || m.to >= STRING_COUNT)) return;
         continue;
       }
@@ -1697,7 +1707,7 @@ class AsciiTabs extends Base {
   #typeDigit(d) {
     if (this.#draft === null || this.#draft === '') return this.#edit(d);
     const next = this.#draft + d;
-    if (/^(0|[1-9][0-9]?)$/.test(next) && Number(next) <= MAX_FRET) this.#edit(next);
+    if (/^(0|[1-9][0-9]?)$/.test(next) && Number(next) <= this.maxFret) this.#edit(next);
   }
 
   #parenthesize() {

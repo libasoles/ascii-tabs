@@ -1,6 +1,6 @@
 {
   "name": "ascii-tabs",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "A zero-dependency web component to write and show guitar tabs as plain ASCII.",
   "type": "module",
   "main": "./ascii-tabs.js",
