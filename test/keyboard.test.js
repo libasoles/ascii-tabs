@@ -47,6 +47,31 @@ test('opening parenthesis wraps a note and edits inside an empty pair, preservin
   });
 });
 
+test('Shift+Arrow moves the focused note to the same pitch on the next String, or does nothing', async () => {
+  await withPage('<ascii-tabs></ascii-tabs><script type="module" src="/ascii-tabs.js"></script>', async page => {
+    await page.waitForSelector('.ascii-tabs-cell');
+    await page.$eval('ascii-tabs', el => { el.value = [[[null, null, null, null, { fret: 7, color: 'red' }, null]]]; });
+    await page.click('.ascii-tabs-cell[data-c="0"][data-s="4"]');
+    const shift = async key => {
+      await page.keyboard.down('Shift');
+      await page.keyboard.press(key);
+      await page.keyboard.up('Shift');
+    };
+    const column = () => page.$eval('ascii-tabs', el => el.value[0][0]);
+    await shift('ArrowUp');
+    assert.deepEqual(await column(), [null, null, null, { fret: 2, color: 'red' }, null, null]);
+    await shift('ArrowUp');
+    assert.deepEqual(await column(), [null, null, null, { fret: 2, color: 'red' }, null, null]);
+    await shift('ArrowDown');
+    assert.deepEqual(await column(), [null, null, null, null, { fret: 7, color: 'red' }, null]);
+    await shift('ArrowDown');
+    assert.deepEqual(await column(), [null, null, null, null, null, { fret: 12, color: 'red' }]);
+    await shift('ArrowDown');
+    assert.deepEqual(await column(), [null, null, null, null, null, { fret: 12, color: 'red' }]);
+    assert.equal(await page.$eval('.ascii-tabs-cur', el => el.dataset.s), '5');
+  });
+});
+
 async function selectNotes(page) {
   const bounds = await page.$eval('ascii-tabs', el => {
     const start = el.querySelector('.ascii-tabs-cell[data-c="0"][data-s="5"]').getBoundingClientRect();

@@ -1653,6 +1653,33 @@ class AsciiTabs extends Base {
     this.#goTo(t, c, s + d);
   }
 
+  // Shift+Up/Down: re-finger the focused or selected notes on the nearest String that keeps their
+  // pitch and puts every one of them within 0..MAX_FRET. Strings are assumed to descend in pitch.
+  #refinger(d) {
+    const notes = (this.#selection.length ? this.#selection : [this.#cur]).filter(p => this.#tabs[p.t][p.c]?.[p.s] != null);
+    if (!notes.length) return;
+    const tuning = this.tuning;
+    const depth = [0];
+    for (let s = 1; s < STRING_COUNT; s++) depth[s] = depth[s - 1] + ((tuningPitch(tuning[s - 1]) - tuningPitch(tuning[s]) + 11) % 12 + 1);
+    for (let step = 1; step < STRING_COUNT; step++) {
+      const moved = notes.map(p => {
+        const to = p.s + d * step;
+        const note = this.#tabs[p.t][p.c][p.s];
+        return { ...p, to, fret: fretValue(note) + depth[to] - depth[p.s], note };
+      });
+      if (moved.some(m => m.to < 0 || m.to >= STRING_COUNT || !isFret(m.fret))) {
+        if (moved.some(m => m.to < 0 || m.to >= STRING_COUNT)) return;
+        continue;
+      }
+      for (const m of moved) this.#setFret(m.t, m.c, m.s, null);
+      for (const m of moved) this.#setFret(m.t, m.c, m.to, typeof m.note === 'object' ? { ...m.note, fret: m.fret } : m.fret);
+      const { t, c, s } = this.#cur;
+      if (this.#selection.length) this.#selection = moved.map(m => ({ t: m.t, c: m.c, s: m.to }));
+      this.#goTo(t, c, s + d * step, this.#selection.length > 0);
+      return this.#emitChange(this.#selection.length ? null : this.#cur);
+    }
+  }
+
   // Typing writes to the value straight away, so `change` follows every keystroke
   #edit(draft, keepParentheses = true) {
     this.#selection = [];
@@ -1751,10 +1778,10 @@ class AsciiTabs extends Base {
         return this.#moveHorizontal(-1);
       case 'ArrowUp':
         e.preventDefault();
-        return this.#moveVertical(-1);
+        return e.shiftKey ? this.#refinger(-1) : this.#moveVertical(-1);
       case 'ArrowDown':
         e.preventDefault();
-        return this.#moveVertical(1);
+        return e.shiftKey ? this.#refinger(1) : this.#moveVertical(1);
       case 'Backspace': {
         e.preventDefault();
         const { t, c, s } = this.#cur;
