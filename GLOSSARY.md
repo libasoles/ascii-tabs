@@ -33,8 +33,12 @@ The visual card that shows one Tab together with its per-Tab tools (copy, delete
 _Avoid_: Card, panel, page
 
 **String label**:
-How Strings are named in the ASCII text: by number (`1`–`6`, the default) or by note in standard tuning (`e B G D A E`).
-_Avoid_: String name, tuning
+How Strings are named in the ASCII text: by number (`1`–`6`, the default) or by the note of the open String in the Tuning (`e B G D A E` in standard tuning).
+_Avoid_: String name
+
+**Tuning**:
+The note of each open String, from String 1 to 6 (`E B G D A E` by default; `E B G D A D` is drop D). It decides which note a Fret sounds when notes are shown instead of Fret numbers, and the names used by note String labels. It never changes the Frets stored in a Tab.
+_Avoid_: Afinación, string names
 
 **Staff**:
 A visual row of a Tab that holds six Strings. A Tab wraps into as many Staves as the available width needs; Staves are not part of the Tab's content.
